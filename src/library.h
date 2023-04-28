@@ -25,25 +25,6 @@ enum ParseError
 	PARSE_ERROR
 };
 
-enum ClassType
-{
-	PointClass = 0,
-	NPCClass,
-	SolidClass,
-	KeyFrameClass,
-	MoveClass,
-	BaseClass,
-	FilterClass
-};
-
-enum SpecialType
-{
-	mapsize = 0,
-	include,
-	MaterialExclusion,
-	AutoVisGroup
-};
-
 typedef struct vec2
 {
 	int x;
@@ -64,8 +45,6 @@ typedef struct ClassProperties
 	ClassProperty_t **classProperties;
 } ClassProperties_t;
 
-// void, integer, float, string, bool
-
 typedef enum EntityIOPropertyType
 {
 	t_string = 0,
@@ -73,19 +52,14 @@ typedef enum EntityIOPropertyType
 	t_float,
 	t_bool,
 	t_void,
-	t_invalid,
+	t_script,
+	t_vector,
+	t_target_destination,
+	t_color255,
+	t_custom,
 
 } EntityIOPropertyType_t;
 
-// typedef enum EntityPropertyType
-//{
-//	STRING = 0,
-//	INTEGER,
-//	FLOAT,
-//	BOOLEAN,
-//	FLAGS,
-//	CHOICES
-// } EntityPropertyType_t;
 typedef struct choice
 {
 	char *value;
@@ -105,7 +79,7 @@ typedef struct EntityProperties
 	char *type;
 	char *displayName;	   // The following 3 are optional and may be empty as a result.
 	char *defaultValue;
-	char *entityDescription;
+	char *propertyDescription;
 	bool readOnly;
 	bool reportable;
 
@@ -127,6 +101,7 @@ typedef struct InputOutput
 {
 	InOut_e putType;
 	EntityIOPropertyType_t type;
+	char *stringType;
 	char *description;
 	char *name;
 
@@ -175,7 +150,7 @@ typedef struct FGDFile
 
 struct FGDFile *parseFGDFile( char *file, size_t fileLength, enum ParseError *err );
 
-char *getNextString( char *file, int *amount );
+TokenBlock_t* getNext(TokenBlock_t* block);
 
 bool EndsWith( const char *str, const char *suffix );
 

@@ -31,8 +31,8 @@ FGDFile_t *parseFGDFile( char *file, size_t fileLength, enum ParseError *err )
 	char singleTokens[] = "{}[](),:=+";
 	TokenType_e valueTokens[] = { OPEN_BRACE, CLOSE_BRACE, OPEN_BRACKET, CLOSE_BRACKET, OPEN_PARENTHESIS, CLOSE_PARENTHESIS, COMMA, COLUMN, EQUALS, PLUS };
 
-	char *typeStrings[5] = { "string", "integer", "float", "bool", "void" };
-	EntityIOPropertyType_t typeList[5] = { t_string, t_integer, t_float, t_bool, t_void };
+	char *typeStrings[9] = { "string", "integer", "float", "bool", "void", "script", "vector", "target_destination", "color255" };
+	EntityIOPropertyType_t typeList[9] = { t_string, t_integer, t_float, t_bool, t_void, t_script,	t_vector, t_target_destination, t_color255 };
 
 	for ( int i = 0, ln = 1; eof != seditedFile; i++, seditedFile++ )
 	{
@@ -499,16 +499,18 @@ FGDFile_t *parseFGDFile( char *file, size_t fileLength, enum ParseError *err )
 								goto onError;
 
 							int index = 0;
-							while ( index < 5 )
+							while ( index < 9 )
 							{
 								if ( strcasecmp( typeStrings[index], block->token->string ) == 0 )
 									break;
 								index++;
 							}
-							if ( index == 5 )
-								inputOutput->type = t_invalid;
+							if ( index == 9 )
+								inputOutput->type = t_custom;
 							else
 								inputOutput->type = typeList[index];
+
+							inputOutput->stringType = strdup( block->token->string );
 
 							Forward( block );
 
@@ -619,7 +621,7 @@ FGDFile_t *parseFGDFile( char *file, size_t fileLength, enum ParseError *err )
 							if ( block->token->type != STRING )
 								goto onError;
 
-							if ( !processFGDStrings( &block, &entityProperties->entityDescription ) )
+							if ( !processFGDStrings( &block, &entityProperties->propertyDescription ) )
 								goto onError;
 
 							if ( block->token->type == EQUALS )
@@ -661,7 +663,7 @@ FGDFile_t *parseFGDFile( char *file, size_t fileLength, enum ParseError *err )
 
 									flags->displayName = strdup( block->token->string );
 
-									if ( block->next->token->type == COLUMN )
+									if ( getNext(block)->token->type == COLUMN )
 									{
 										Forward( block );
 
@@ -777,6 +779,9 @@ void freeFGDFile( FGDFile_t *file )
 			if ( file->entities[i]->inputOutput[p]->description )
 				free( file->entities[i]->inputOutput[p]->description );
 
+			if(file->entities[i]->inputOutput[p]->stringType)
+				free(file->entities[i]->inputOutput[p]->stringType);
+
 			if ( file->entities[i]->inputOutput[p] )
 				free( file->entities[i]->inputOutput[p] );
 		}
@@ -786,8 +791,8 @@ void freeFGDFile( FGDFile_t *file )
 
 		for ( int p = 0; p < file->entities[i]->entityPropertyCount; p++ )
 		{
-			if ( file->entities[i]->entityProperties[p]->entityDescription )
-				free( file->entities[i]->entityProperties[p]->entityDescription );
+			if ( file->entities[i]->entityProperties[p]->propertyDescription )
+				free( file->entities[i]->entityProperties[p]->propertyDescription );
 			if ( file->entities[i]->entityProperties[p]->displayName )
 				free( file->entities[i]->entityProperties[p]->displayName );
 			if ( file->entities[i]->entityProperties[p]->defaultValue )
@@ -916,6 +921,17 @@ bool EndsWith( const char *str, const char *suffix )
 	if ( lensuffix > lenstr )
 		return false;
 	return strncmp( str + lenstr - lensuffix, suffix, lensuffix ) == 0;
+}
+TokenBlock_t *getNext( TokenBlock_t *block )
+{
+	block = block->next;
+
+	if ( !block )
+		return NULL;
+	while ( block->token->type == COMMENT )
+		block = block->next;
+
+	return block;
 }
 
 char *getNextString( char *file, int *amount )
