@@ -9,6 +9,7 @@ set(SRC
 if (STOME_TEST_APPLICATION)
     add_executable(${PROJECT_NAME} src/main.c ${SRC})
 else ()
-    add_library(${PROJECT_NAME} ${SRC})
+    add_library(${PROJECT_NAME} STATIC ${SRC})
+    target_include_directories(${PROJECT_NAME} PUBLIC src/)
 endif ()
 

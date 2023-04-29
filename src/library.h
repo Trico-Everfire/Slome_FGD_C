@@ -8,16 +8,8 @@
 #define MAX_STR_CHUNK_LENGTH 1024
 
 #define AssignOrResizeArray( array, ArrayType, size )                  \
-	if ( array )                                                       \
-	{                                                                  \
 		size++;                                                        \
-		array = realloc( array, (int)( sizeof( ArrayType ) * size ) ); \
-	}                                                                  \
-	else                                                               \
-	{                                                                  \
-		array = malloc( sizeof( ArrayType ) );                         \
-		size++;                                                        \
-	}
+		array = realloc( array, (int)( sizeof( ArrayType ) * size ) );
 
 enum ParseError
 {

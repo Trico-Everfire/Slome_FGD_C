@@ -2,13 +2,17 @@
 
 #include <bits/types/FILE.h>
 #include <malloc.h>
+#include <string.h>
 #include <stdio.h>
 
 int main( int argc, char **argv )
 {
-	// /home/trico/.local/share/Steam/steamapps/common/Portal 2/bin/portal2.fgd
-	// /home/trico/.local/share/Steam/steamapps/common/Portal 2 Community Edition/p2ce/p2ce.fgd
-	FILE *f = fopen( "/home/trico/.local/share/Steam/steamapps/common/Portal 2/bin/base.fgd", "r" );
+
+	//Syntax: -i "fpath-to-file"
+	if( strcasecmp(argv[1], "-i") != 0 || !argv[2])
+		return 1;
+
+	FILE *f = fopen( argv[2], "r" );
 
 	fseek( f, 0, SEEK_END );
 	size_t size = ftell( f );
