@@ -25,7 +25,7 @@ int main( int argc, char **argv )
 
 	enum ParseError err;
 
-	struct FGDFile *file = parseFGDFile( fileContents, size, &err );
+	struct FGDFile *file = ParseFGDFile( fileContents, size, &err );
 
 	if ( err == PARSE_ERROR )
 	{
@@ -128,7 +128,7 @@ int main( int argc, char **argv )
 	}
 
 	free( fileContents );
-	freeFGDFile( file );
+	FreeFGDFile( file );
 
 	return 0;
 }

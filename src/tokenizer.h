@@ -2,15 +2,6 @@
 
 #include <stdbool.h>
 
-#define firstOrNext( toNext, toNext2 ) toNext ? toNext->next : toNext2->first
-
-#define Forward( block )                    \
-	block = block->next;                    \
-	if ( !block )                           \
-		break;                              \
-	while ( block->token->type == COMMENT ) \
-		block = block->next;
-
 typedef enum TokenType
 {
 
@@ -62,10 +53,10 @@ typedef struct Tokenizer
 	TokenBlock_t *next;
 } Tokenizer_t;
 
-Token_t *generateEmptyToken();
+Token_t *GenerateEmptyToken();
 
 Tokenizer_t *GetNewTokenList();
 
 void PushToTokenList( Tokenizer_t *tokeniser, Token_t *token );
 
-void freeTokenizer( Tokenizer_t *tokeniser );
+void FreeTokenizer( Tokenizer_t *tokeniser );

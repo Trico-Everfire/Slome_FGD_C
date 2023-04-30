@@ -5,11 +5,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-#define MAX_STR_CHUNK_LENGTH 1024
-
-#define AssignOrResizeArray( array, ArrayType, size )                  \
-		size++;                                                        \
-		array = realloc( array, (int)( sizeof( ArrayType ) * size ) );
+#define SLOME_MAX_STR_CHUNK_LENGTH 1024
 
 enum ParseError
 {
@@ -17,11 +13,11 @@ enum ParseError
 	PARSE_ERROR
 };
 
-typedef struct vec2
+typedef struct Vec2
 {
 	int x;
 	int y;
-} vec2_t;
+} Vec2_t;
 
 typedef struct ClassProperty
 {
@@ -52,18 +48,18 @@ typedef enum EntityIOPropertyType
 
 } EntityIOPropertyType_t;
 
-typedef struct choice
+typedef struct Choice
 {
 	char *value;
 	char *displayName;
-} choice_t;
+} Choice_t;
 
-typedef struct flags
+typedef struct Flag
 {
 	int value;
 	bool checked;
 	char *displayName;
-} flags_t;
+} Flag_t;
 
 typedef struct EntityProperties
 {
@@ -76,10 +72,10 @@ typedef struct EntityProperties
 	bool reportable;
 
 	int choiceCount; // This is a special case if the EntityPropertyType is t_choices
-	struct choice **choices;
+	Choice_t **choices;
 
 	int flagCount; // This is a special case if the EntityPropertyType is t_flags
-	struct flags **flags;
+	Flag_t **flags;
 
 } EntityProperties_t;
 
@@ -131,7 +127,7 @@ typedef struct FGDFile
 {
 	int entityCount;
 	struct Entity **entities;
-	struct vec2 mapSize;
+	Vec2_t mapSize;
 	int materialExcludeCount;
 	char **materialExclusions;
 	int visGroupCount;
@@ -140,12 +136,12 @@ typedef struct FGDFile
 	struct AutoVIsGroup **autoVisGroups;
 } FGDFile_t;
 
-struct FGDFile *parseFGDFile( char *file, size_t fileLength, enum ParseError *err );
+struct FGDFile *ParseFGDFile( char *file, size_t fileLength, enum ParseError *err );
 
-TokenBlock_t* getNext(TokenBlock_t* block);
+TokenBlock_t*GetNext(TokenBlock_t* block);
 
 bool EndsWith( const char *str, const char *suffix );
 
-bool processFGDStrings( TokenBlock_t **block, char **str );
+bool ProcessFGDStrings( TokenBlock_t **block, char **str );
 
-void freeFGDFile( struct FGDFile *file );
+void FreeFGDFile( struct FGDFile *file );

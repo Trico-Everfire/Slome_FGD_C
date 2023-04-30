@@ -8,7 +8,20 @@
 #include <stdlib.h>
 #include <string.h>
 
-FGDFile_t *parseFGDFile( char *file, size_t fileLength, enum ParseError *err )
+#define FirstOrNext( toNext, toNext2 ) toNext ? toNext->next : toNext2->first
+
+#define Forward( block )                    \
+	block = block->next;                    \
+	if ( !block )                           \
+		break;                              \
+	while ( block->token->type == COMMENT ) \
+		block = block->next;
+
+#define AssignOrResizeArray( array, ArrayType, size )                  \
+		size++;                                                        \
+		array = realloc( array, (int)( sizeof( ArrayType ) * size ) );
+
+FGDFile_t *ParseFGDFile( char *file, size_t fileLength, enum ParseError *err )
 {
 	*err = NO_ERROR;
 
@@ -66,7 +79,7 @@ FGDFile_t *parseFGDFile( char *file, size_t fileLength, enum ParseError *err )
 			}
 			seditedFile++;
 			i++;
-			Token_t *commentToken = generateEmptyToken();
+			Token_t *commentToken = GenerateEmptyToken();
 			commentToken->line = currentln;
 			commentToken->type = STRING;
 			Range_t range = { currentLength, i };
@@ -91,7 +104,7 @@ FGDFile_t *parseFGDFile( char *file, size_t fileLength, enum ParseError *err )
 			seditedFile--;
 			i--;
 
-			Token_t *commentToken = generateEmptyToken();
+			Token_t *commentToken = GenerateEmptyToken();
 			commentToken->line = ln;
 			commentToken->type = COMMENT;
 			Range_t range = { currentLength, i };
@@ -119,7 +132,7 @@ FGDFile_t *parseFGDFile( char *file, size_t fileLength, enum ParseError *err )
 
 			if ( c == '\n' )
 				ln++;
-			Token_t *commentToken = generateEmptyToken();
+			Token_t *commentToken = GenerateEmptyToken();
 			commentToken->line = ln;
 			commentToken->type = DEFINITION;
 			Range_t range = { currentLength, i };
@@ -153,7 +166,7 @@ FGDFile_t *parseFGDFile( char *file, size_t fileLength, enum ParseError *err )
 			seditedFile--;
 			i--;
 
-			Token_t *commentToken = generateEmptyToken();
+			Token_t *commentToken = GenerateEmptyToken();
 			commentToken->line = ln;
 			commentToken->type = NUMBER;
 			Range_t range = { currentLength, i };
@@ -171,7 +184,7 @@ FGDFile_t *parseFGDFile( char *file, size_t fileLength, enum ParseError *err )
 		{
 			int spaces = (int)( (int)( (char *)valueKey - (char *)singleTokens ) / sizeof( char ) ); // char should be 1, but I am sanity checking it anyway.
 			TokenType_e tType = valueTokens[spaces];
-			Token_t *commentToken = generateEmptyToken();
+			Token_t *commentToken = GenerateEmptyToken();
 			commentToken->line = ln;
 			commentToken->type = tType;
 			Range_t range = { i, i + 1 };
@@ -193,7 +206,7 @@ FGDFile_t *parseFGDFile( char *file, size_t fileLength, enum ParseError *err )
 				i++;
 			}
 
-			Token_t *commentToken = generateEmptyToken();
+			Token_t *commentToken = GenerateEmptyToken();
 			commentToken->line = ln;
 			commentToken->type = LITERAL;
 			Range_t range = { currentLength, i };
@@ -210,7 +223,7 @@ FGDFile_t *parseFGDFile( char *file, size_t fileLength, enum ParseError *err )
 	{
 		TokenBlock_t *block = NULL;
 
-		while ( ( block = firstOrNext( block, tokenizer ) ) )
+		while ( ( block = FirstOrNext( block, tokenizer ) ) )
 		{
 			if ( block->token->type == DEFINITION )
 			{
@@ -462,7 +475,7 @@ FGDFile_t *parseFGDFile( char *file, size_t fileLength, enum ParseError *err )
 						if ( block->token->type != STRING )
 							goto onError;
 
-						if ( !processFGDStrings( &block, &entity->entityDescription ) )
+						if ( !ProcessFGDStrings( &block, &entity->entityDescription ) )
 							goto onError;
 					}
 
@@ -526,7 +539,7 @@ FGDFile_t *parseFGDFile( char *file, size_t fileLength, enum ParseError *err )
 								if ( block->token->type != STRING )
 									goto onError;
 
-								if ( !processFGDStrings( &block, &inputOutput->description ) )
+								if ( !ProcessFGDStrings( &block, &inputOutput->description ) )
 									goto onError;
 							}
 
@@ -621,7 +634,7 @@ FGDFile_t *parseFGDFile( char *file, size_t fileLength, enum ParseError *err )
 							if ( block->token->type != STRING )
 								goto onError;
 
-							if ( !processFGDStrings( &block, &entityProperties->propertyDescription ) )
+							if ( !ProcessFGDStrings( &block, &entityProperties->propertyDescription ) )
 								goto onError;
 
 							if ( block->token->type == EQUALS )
@@ -649,8 +662,8 @@ FGDFile_t *parseFGDFile( char *file, size_t fileLength, enum ParseError *err )
 
 								if ( isFlags )
 								{
-									AssignOrResizeArray( entityProperties->flags, flags_t *, entityProperties->flagCount );
-									flags_t *flags = entityProperties->flags[entityProperties->flagCount - 1] = malloc( sizeof( flags_t ) );
+									AssignOrResizeArray( entityProperties->flags, Flag_t *, entityProperties->flagCount );
+									Flag_t *flags = entityProperties->flags[entityProperties->flagCount - 1] = malloc( sizeof( Flag_t ) );
 									flags->value = atoi( block->token->string );
 
 									Forward( block );
@@ -663,7 +676,7 @@ FGDFile_t *parseFGDFile( char *file, size_t fileLength, enum ParseError *err )
 
 									flags->displayName = strdup( block->token->string );
 
-									if ( getNext(block)->token->type == COLUMN )
+									if ( GetNext( block )->token->type == COLUMN )
 									{
 										Forward( block );
 
@@ -677,8 +690,8 @@ FGDFile_t *parseFGDFile( char *file, size_t fileLength, enum ParseError *err )
 								}
 								else
 								{
-									AssignOrResizeArray( entityProperties->choices, choice_t *, entityProperties->choiceCount );
-									choice_t *choice = entityProperties->choices[entityProperties->choiceCount - 1] = malloc( sizeof( choice_t ) );
+									AssignOrResizeArray( entityProperties->choices, Choice_t *, entityProperties->choiceCount );
+									Choice_t *choice = entityProperties->choices[entityProperties->choiceCount - 1] = malloc( sizeof( Choice_t ) );
 									choice->value = strdup( block->token->string );
 
 									Forward( block );
@@ -705,33 +718,33 @@ FGDFile_t *parseFGDFile( char *file, size_t fileLength, enum ParseError *err )
 	}
 
 	free( ownedChar );
-	freeTokenizer( tokenizer );
+	FreeTokenizer( tokenizer );
 
 	return fgdFile;
 
 onError:
-	freeFGDFile( fgdFile );
+	FreeFGDFile( fgdFile );
 	free( ownedChar );
-	freeTokenizer( tokenizer );
+	FreeTokenizer( tokenizer );
 	*err = PARSE_ERROR;
 	return fgdFile;
 }
 
-bool processFGDStrings( TokenBlock_t **block, char **str )
+bool ProcessFGDStrings( TokenBlock_t **block, char **str )
 {
-	char *fields[50][MAX_STR_CHUNK_LENGTH];
+	char *fields[50][SLOME_MAX_STR_CHUNK_LENGTH];
 
 	int index = 0;
 	while ( ( *block )->token->type == STRING )
 	{
 		int len = strlen( ( *block )->token->string );
 
-		if ( len > MAX_STR_CHUNK_LENGTH )
+		if ( len > SLOME_MAX_STR_CHUNK_LENGTH )
 			return false;
 
-		memset(fields[index], 0, MAX_STR_CHUNK_LENGTH);
+		memset(fields[index], 0, SLOME_MAX_STR_CHUNK_LENGTH );
 
-		strncpy( (char *)fields[index], ( *block )->token->string, MAX_STR_CHUNK_LENGTH );
+		strncpy( (char *)fields[index], ( *block )->token->string, SLOME_MAX_STR_CHUNK_LENGTH );
 
 		index++;
 		Forward( ( *block ) );
@@ -741,21 +754,21 @@ bool processFGDStrings( TokenBlock_t **block, char **str )
 		}
 	}
 
-	char *descString = *str = malloc( index * MAX_STR_CHUNK_LENGTH );
-	memset( fields[index], 0, index * MAX_STR_CHUNK_LENGTH );
+	char *descString = *str = malloc( index * SLOME_MAX_STR_CHUNK_LENGTH );
+	memset( fields[index], 0, index * SLOME_MAX_STR_CHUNK_LENGTH );
 
 	for ( int d = 0; d < index; d++ )
 	{
 		if(d == 0)
-			strncpy(descString, fields[d], MAX_STR_CHUNK_LENGTH);
+			strncpy(descString, fields[d], SLOME_MAX_STR_CHUNK_LENGTH );
 		else
-			strncat( descString, fields[d], MAX_STR_CHUNK_LENGTH );
+			strncat( descString, fields[d], SLOME_MAX_STR_CHUNK_LENGTH );
 	}
 
 	return true;
 }
 
-void freeFGDFile( FGDFile_t *file )
+void FreeFGDFile( struct FGDFile *file )
 {
 	if ( !file )
 		return;
@@ -922,7 +935,7 @@ bool EndsWith( const char *str, const char *suffix )
 		return false;
 	return strncmp( str + lenstr - lensuffix, suffix, lensuffix ) == 0;
 }
-TokenBlock_t *getNext( TokenBlock_t *block )
+TokenBlock_t *GetNext( TokenBlock_t *block )
 {
 	block = block->next;
 

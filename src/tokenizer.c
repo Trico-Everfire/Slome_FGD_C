@@ -17,7 +17,7 @@ Tokenizer_t *GetNewTokenList()
 	return pTokenizer;
 }
 
-void freeTokenizer( Tokenizer_t *tokeniser )
+void FreeTokenizer( Tokenizer_t *tokeniser )
 {
 	TokenBlock_t *block = tokeniser->first;
 
@@ -51,32 +51,10 @@ void PushToTokenList( Tokenizer_t *tokeniser, Token_t *token )
 	tokeniser->tokenListCount++;
 }
 
-Token_t *generateEmptyToken()
+Token_t *GenerateEmptyToken()
 {
 	Token_t *token = malloc( sizeof( Token_t ) );
 	memset( token, 0, sizeof( Token_t ) );
 
 	return token;
-}
-TokenType_e getNextTokenType( TokenBlock_t *block, bool wantsComments )
-{
-	TokenBlock_t *nextToken = block->next;
-	if ( !wantsComments )
-	{
-		while ( nextToken->token->type == COMMENT )
-			nextToken = nextToken->next;
-	}
-
-	return nextToken->token->type;
-}
-char *getNextTokenString( TokenBlock_t *block, bool wantsComments )
-{
-	TokenBlock_t *nextToken = block->next;
-	if ( !wantsComments )
-	{
-		while ( nextToken->token->type == COMMENT )
-			nextToken = nextToken->next;
-	}
-
-	return nextToken->token->string;
 }
