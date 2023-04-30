@@ -1,4 +1,4 @@
-#include "library.h"
+#include "include/libslome.h"
 
 #include <bits/types/FILE.h>
 #include <malloc.h>

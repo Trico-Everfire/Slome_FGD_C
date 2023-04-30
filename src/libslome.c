@@ -1,12 +1,10 @@
-#include "library.h"
+#include "include/libslome.h"
 
-#include "tokenizer.h"
-
-#include <ctype.h>
-#include <malloc.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include "tokenizer.h"
 
 #define FirstOrNext( toNext, toNext2 ) toNext ? toNext->next : toNext2->first
 
@@ -24,6 +22,68 @@
 #define AssignOrResizeArray( array, ArrayType, size ) \
 	size++;                                           \
 	array = realloc( array, (int)( sizeof( ArrayType ) * size ) );
+
+
+bool ProcessFGDStrings( TokenBlock_t **block, char **str )
+{
+	char *fields[50][SLOME_MAX_STR_CHUNK_LENGTH];
+
+	int index = 0;
+	while ( ( *block )->token->type == STRING )
+	{
+		int len = strlen( ( *block )->token->string );
+
+		if ( len > SLOME_MAX_STR_CHUNK_LENGTH )
+			return false;
+
+		memset( fields[index], 0, SLOME_MAX_STR_CHUNK_LENGTH );
+
+		strncpy( (char *)fields[index], ( *block )->token->string, SLOME_MAX_STR_CHUNK_LENGTH );
+
+		index++;
+		Forward( ( *block ), { return false; } );
+		if ( ( *block )->token->type == PLUS )
+		{
+			Forward( ( *block ), { return false; } );
+		}
+	}
+
+	char *descString = *str = malloc( index * SLOME_MAX_STR_CHUNK_LENGTH );
+	memset( fields[index], 0, index * SLOME_MAX_STR_CHUNK_LENGTH );
+
+	for ( int d = 0; d < index; d++ )
+	{
+		if ( d == 0 )
+			strncpy( descString, fields[d], SLOME_MAX_STR_CHUNK_LENGTH );
+		else
+			strncat( descString, fields[d], SLOME_MAX_STR_CHUNK_LENGTH );
+	}
+
+	return true;
+}
+
+bool EndsWith( const char *str, const char *suffix )
+{
+	if ( !str || !suffix )
+		return false;
+	size_t lenstr = strlen( str );
+	size_t lensuffix = strlen( suffix );
+	if ( lensuffix > lenstr )
+		return false;
+	return strncmp( str + lenstr - lensuffix, suffix, lensuffix ) == 0;
+}
+
+TokenBlock_t *GetNext( TokenBlock_t *block )
+{
+	block = block->next;
+
+	if ( !block )
+		return NULL;
+	while ( block->token->type == COMMENT )
+		block = block->next;
+
+	return block;
+}
 
 FGDFile_t *ParseFGDFile( char *file, size_t fileLength, enum ParseError *err )
 {
@@ -560,44 +620,6 @@ onError:
 	return NULL;
 }
 
-bool ProcessFGDStrings( TokenBlock_t **block, char **str )
-{
-	char *fields[50][SLOME_MAX_STR_CHUNK_LENGTH];
-
-	int index = 0;
-	while ( ( *block )->token->type == STRING )
-	{
-		int len = strlen( ( *block )->token->string );
-
-		if ( len > SLOME_MAX_STR_CHUNK_LENGTH )
-			return false;
-
-		memset( fields[index], 0, SLOME_MAX_STR_CHUNK_LENGTH );
-
-		strncpy( (char *)fields[index], ( *block )->token->string, SLOME_MAX_STR_CHUNK_LENGTH );
-
-		index++;
-		Forward( ( *block ), { return false; } );
-		if ( ( *block )->token->type == PLUS )
-		{
-			Forward( ( *block ), { return false; } );
-		}
-	}
-
-	char *descString = *str = malloc( index * SLOME_MAX_STR_CHUNK_LENGTH );
-	memset( fields[index], 0, index * SLOME_MAX_STR_CHUNK_LENGTH );
-
-	for ( int d = 0; d < index; d++ )
-	{
-		if ( d == 0 )
-			strncpy( descString, fields[d], SLOME_MAX_STR_CHUNK_LENGTH );
-		else
-			strncat( descString, fields[d], SLOME_MAX_STR_CHUNK_LENGTH );
-	}
-
-	return true;
-}
-
 void FreeFGDFile( struct FGDFile *file )
 {
 	if ( !file )
@@ -753,41 +775,4 @@ void FreeFGDFile( struct FGDFile *file )
 		free( file->includes );
 
 	free( file );
-}
-
-bool EndsWith( const char *str, const char *suffix )
-{
-	if ( !str || !suffix )
-		return false;
-	size_t lenstr = strlen( str );
-	size_t lensuffix = strlen( suffix );
-	if ( lensuffix > lenstr )
-		return false;
-	return strncmp( str + lenstr - lensuffix, suffix, lensuffix ) == 0;
-}
-TokenBlock_t *GetNext( TokenBlock_t *block )
-{
-	block = block->next;
-
-	if ( !block )
-		return NULL;
-	while ( block->token->type == COMMENT )
-		block = block->next;
-
-	return block;
-}
-
-char *getNextString( char *file, int *amount )
-{
-	for ( ; *file != '"'; ++file )
-		;
-	++file;
-	int i = 0;
-	for ( ; *file != '"'; ++file, ++i )
-		;
-	char *name = malloc( sizeof( char ) * ( i + 1 ) );
-	strncpy( name, file - i, i );
-	name[i] = '\0';
-	*amount = i + 1;
-	return name;
 }

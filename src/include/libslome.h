@@ -1,6 +1,6 @@
 #pragma once
 
-#include "tokenizer.h"
+#include "../tokenizer.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -137,11 +137,5 @@ typedef struct FGDFile
 } FGDFile_t;
 
 struct FGDFile *ParseFGDFile( char *file, size_t fileLength, enum ParseError *err );
-
-TokenBlock_t *GetNext( TokenBlock_t *block );
-
-bool EndsWith( const char *str, const char *suffix );
-
-bool ProcessFGDStrings( TokenBlock_t **block, char **str );
 
 void FreeFGDFile( struct FGDFile *file );

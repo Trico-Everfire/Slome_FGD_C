@@ -4,38 +4,9 @@
 #include <malloc.h>
 #include <string.h>
 
+//private
 char singleTokens[] = "{}[](),:=+";
 TokenType_e valueTokens[] = { OPEN_BRACE, CLOSE_BRACE, OPEN_BRACKET, CLOSE_BRACKET, OPEN_PARENTHESIS, CLOSE_PARENTHESIS, COMMA, COLUMN, EQUALS, PLUS };
-
-Tokenizer_t *GetNewTokenList()
-{
-	Tokenizer_t *pTokenizer = malloc( sizeof( Tokenizer_t ) );
-
-	if ( !pTokenizer )
-		return NULL;
-
-	pTokenizer->next = NULL;
-	pTokenizer->first = NULL;
-	pTokenizer->tokenListCount = 0;
-
-	return pTokenizer;
-}
-
-void FreeTokenizer( Tokenizer_t *tokeniser )
-{
-	TokenBlock_t *block = tokeniser->first;
-
-	while ( block )
-	{
-		free( block->token->string );
-		free( block->token );
-		TokenBlock_t *temp = block->next;
-		free( block );
-		block = temp;
-	}
-
-	free( tokeniser );
-}
 
 void PushToTokenList( Tokenizer_t *tokeniser, Token_t *token )
 {
@@ -61,6 +32,21 @@ Token_t *GenerateEmptyToken()
 	memset( token, 0, sizeof( Token_t ) );
 
 	return token;
+}
+
+//public
+Tokenizer_t *GetNewTokenList()
+{
+	Tokenizer_t *pTokenizer = malloc( sizeof( Tokenizer_t ) );
+
+	if ( !pTokenizer )
+		return NULL;
+
+	pTokenizer->next = NULL;
+	pTokenizer->first = NULL;
+	pTokenizer->tokenListCount = 0;
+
+	return pTokenizer;
 }
 
 bool TokenizeFile( char *file, size_t fileLength, Tokenizer_t **pTokenizer )
@@ -253,4 +239,20 @@ bool TokenizeFile( char *file, size_t fileLength, Tokenizer_t **pTokenizer )
 	}
 
 	return true;
+}
+
+void FreeTokenizer( Tokenizer_t *tokeniser )
+{
+	TokenBlock_t *block = tokeniser->first;
+
+	while ( block )
+	{
+		free( block->token->string );
+		free( block->token );
+		TokenBlock_t *temp = block->next;
+		free( block );
+		block = temp;
+	}
+
+	free( tokeniser );
 }
