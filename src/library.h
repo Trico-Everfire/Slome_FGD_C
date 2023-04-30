@@ -138,7 +138,7 @@ typedef struct FGDFile
 
 struct FGDFile *ParseFGDFile( char *file, size_t fileLength, enum ParseError *err );
 
-TokenBlock_t*GetNext(TokenBlock_t* block);
+TokenBlock_t *GetNext( TokenBlock_t *block );
 
 bool EndsWith( const char *str, const char *suffix );
 

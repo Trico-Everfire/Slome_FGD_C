@@ -15,14 +15,15 @@
 	if ( !block )                           \
 		failureResult;                      \
 	while ( block->token->type == COMMENT ) \
-        {                                   \
+	{                                       \
 		block = block->next;                \
-		if(!block) failureResult;			\
-		}
+		if ( !block )                       \
+			failureResult;                  \
+	}
 
-#define AssignOrResizeArray( array, ArrayType, size )                  \
-		size++;                                                        \
-		array = realloc( array, (int)( sizeof( ArrayType ) * size ) );
+#define AssignOrResizeArray( array, ArrayType, size ) \
+	size++;                                           \
+	array = realloc( array, (int)( sizeof( ArrayType ) * size ) );
 
 FGDFile_t *ParseFGDFile( char *file, size_t fileLength, enum ParseError *err )
 {
@@ -41,681 +42,507 @@ FGDFile_t *ParseFGDFile( char *file, size_t fileLength, enum ParseError *err )
 	char *ownedChar = malloc( fileLength );
 	memcpy( ownedChar, file, fileLength );
 
-	char *seditedFile = ownedChar;
-	char *eof = seditedFile + fileLength;
-
-	char singleTokens[] = "{}[](),:=+";
-	TokenType_e valueTokens[] = { OPEN_BRACE, CLOSE_BRACE, OPEN_BRACKET, CLOSE_BRACKET, OPEN_PARENTHESIS, CLOSE_PARENTHESIS, COMMA, COLUMN, EQUALS, PLUS };
-
-	char *typeStrings[9] = { "string", "integer", "float", "bool", "void", "script", "vector", "target_destination", "color255" };
-	EntityIOPropertyType_t typeList[9] = { t_string, t_integer, t_float, t_bool, t_void, t_script,	t_vector, t_target_destination, t_color255 };
-
-	for ( int i = 0, ln = 1; eof != seditedFile; i++, seditedFile++ )
+	if ( !TokenizeFile(ownedChar, fileLength, &tokenizer) || !tokenizer->first ) //We have no tokens.
 	{
-		char c = *seditedFile;
-
-		if ( c == '\t' )
-			continue;
-
-		if ( c == '\r' )
-			continue;
-
-		if ( c == '\n' )
-		{
-			ln++;
-			continue;
-		}
-
-		if ( c == '"' )
-		{
-			int currentln = ln;
-			int currentLength = i;
-			char *currentPosition = seditedFile;
-			c = '\t'; // We can get away with this to trick the while loop :)
-			while ( c != '"' )
-			{
-				seditedFile++;
-				c = *seditedFile;
-				i++;
-				if ( c == '\n' )
-					ln++;
-			}
-			seditedFile++;
-			i++;
-			Token_t *commentToken = GenerateEmptyToken();
-			commentToken->line = currentln;
-			commentToken->type = STRING;
-			Range_t range = { currentLength, i };
-			commentToken->range = range;
-			commentToken->string = strndup( currentPosition, i - currentLength );
-			PushToTokenList( tokenizer, commentToken );
-			seditedFile--;
-			i--;
-			continue;
-		}
-
-		if ( c == '/' && *( seditedFile + 1 ) == '/' )
-		{
-			int currentLength = i;
-			char *currentPosition = seditedFile;
-			while ( c != '\n' )
-			{
-				c = *seditedFile;
-				i++;
-				seditedFile++;
-			}
-			seditedFile--;
-			i--;
-
-			Token_t *commentToken = GenerateEmptyToken();
-			commentToken->line = ln;
-			commentToken->type = COMMENT;
-			Range_t range = { currentLength, i };
-			commentToken->range = range;
-			commentToken->string = strndup( currentPosition, i - currentLength );
-			PushToTokenList( tokenizer, commentToken );
-
-			seditedFile--;
-			i--;
-			continue;
-		}
-
-		if ( c == '@' )
-		{
-			int currentLength = i;
-			char *currentPosition = seditedFile;
-			while ( c != '\n' && c != '\t' && c != '\r' && c != ' ' && c != '(' )
-			{
-				c = *seditedFile;
-				i++;
-				seditedFile++;
-			}
-			seditedFile--;
-			i--;
-
-			if ( c == '\n' )
-				ln++;
-			Token_t *commentToken = GenerateEmptyToken();
-			commentToken->line = ln;
-			commentToken->type = DEFINITION;
-			Range_t range = { currentLength, i };
-			commentToken->range = range;
-			commentToken->string = strndup( currentPosition, i - currentLength );
-			PushToTokenList( tokenizer, commentToken );
-
-			seditedFile--;
-			i--;
-			continue;
-		}
-
-		if ( isdigit( c ) != 0 || ( c == '-' && isdigit( *( seditedFile + 1 ) ) ) )
-		{
-			int currentLength = i;
-			char *currentPosition = seditedFile;
-
-			if ( c == '-' )
-			{
-				seditedFile++;
-				i++;
-				c = *seditedFile;
-			}
-
-			while ( isdigit( c ) != 0 )
-			{
-				c = *seditedFile;
-				i++;
-				seditedFile++;
-			}
-			seditedFile--;
-			i--;
-
-			Token_t *commentToken = GenerateEmptyToken();
-			commentToken->line = ln;
-			commentToken->type = NUMBER;
-			Range_t range = { currentLength, i };
-			commentToken->range = range;
-			commentToken->string = strndup( currentPosition, i - currentLength );
-			PushToTokenList( tokenizer, commentToken );
-			seditedFile--;
-			i--;
-			continue;
-		}
-
-		char *valueKey = strchr( singleTokens, c );
-
-		if ( valueKey )
-		{
-			int spaces = (int)( (int)( (char *)valueKey - (char *)singleTokens ) / sizeof( char ) ); // char should be 1, but I am sanity checking it anyway.
-			TokenType_e tType = valueTokens[spaces];
-			Token_t *commentToken = GenerateEmptyToken();
-			commentToken->line = ln;
-			commentToken->type = tType;
-			Range_t range = { i, i + 1 };
-			commentToken->range = range;
-			char temp[] = { c };
-			commentToken->string = strndup( temp, 1 );
-			PushToTokenList( tokenizer, commentToken );
-			continue;
-		}
-
-		if ( c != ' ' )
-		{
-			int currentLength = i;
-			char *currentPosition = seditedFile;
-			while ( c != '\n' && c != ' ' && c != '\t' && c != '\r' && !strchr( singleTokens, c ) )
-			{
-				seditedFile++;
-				c = *seditedFile;
-				i++;
-			}
-
-			Token_t *commentToken = GenerateEmptyToken();
-			commentToken->line = ln;
-			commentToken->type = LITERAL;
-			Range_t range = { currentLength, i };
-			commentToken->range = range;
-			commentToken->string = strndup( currentPosition, i - currentLength );
-			PushToTokenList( tokenizer, commentToken );
-			seditedFile--;
-			i--;
-			continue;
-		}
+		free( ownedChar );
+		FreeTokenizer( tokenizer );
+		*err = PARSE_ERROR;
+		return NULL;
 	}
 
-	if ( tokenizer->first )
+	char *typeStrings[9] = { "string", "integer", "float", "bool", "void", "script", "vector", "target_destination", "color255" };
+	EntityIOPropertyType_t typeList[9] = { t_string, t_integer, t_float, t_bool, t_void, t_script, t_vector, t_target_destination, t_color255 };
+
+	TokenBlock_t *block = NULL;
+	while ( ( block = FirstOrNext( block, tokenizer ) ) )
 	{
-		TokenBlock_t *block = NULL;
+		if ( block->token->type != DEFINITION )
+			continue;
 
-		while ( ( block = FirstOrNext( block, tokenizer ) ) )
+		if ( strcasecmp( block->token->string, "@mapsize" ) == 0 )
 		{
-			if ( block->token->type == DEFINITION )
+			Forward( block, { goto onError; } );
+			if ( block->token->type != OPEN_PARENTHESIS )
+				goto onError;
+
+			Forward( block, { goto onError; } );
+			if ( block->token->type != NUMBER )
+				goto onError;
+
+			fgdFile->mapSize.x = atoi( block->token->string );
+
+			Forward( block, { goto onError; } );
+			if ( block->token->type != COMMA )
+				goto onError;
+
+			Forward( block, { goto onError; } );
+			if ( block->token->type != NUMBER )
+				goto onError;
+
+			fgdFile->mapSize.y = atoi( block->token->string );
+
+			Forward( block, { goto onError; } );
+			if ( block->token->type != CLOSE_PARENTHESIS )
+				goto onError;
+
+			continue;
+		}
+
+		if ( strcasecmp( block->token->string, "@AutoVisgroup" ) == 0 )
+		{
+			Forward( block, { goto onError; } );
+			if ( block->token->type != EQUALS )
+				goto onError;
+
+			Forward( block, { goto onError; } );
+			if ( block->token->type != STRING )
+				goto onError;
+
+			AssignOrResizeArray( fgdFile->autoVisGroups, AutoVIsGroup_t *, fgdFile->visGroupCount );
+
+			AutoVIsGroup_t *visGroup = fgdFile->autoVisGroups[fgdFile->visGroupCount - 1] = malloc( sizeof( AutoVIsGroup_t ) );
+			memset( visGroup, 0, sizeof( AutoVIsGroup_t ) );
+
+			visGroup->name = strdup( block->token->string );
+
+			Forward( block, { goto onError; } );
+			if ( block->token->type != OPEN_BRACKET )
+				goto onError;
+
+			Forward( block, { goto onError; } );
+			if ( block->token->type != STRING && block->token->type != CLOSE_BRACKET )
+				goto onError;
+
+			while ( block->token->type == STRING )
 			{
-				if ( strcasecmp( block->token->string, "@mapsize" ) == 0 )
+				AssignOrResizeArray( visGroup->children, AutoVisGroupChild_t *, visGroup->childCount );
+				AutoVisGroupChild_t *visGroupChild = visGroup->children[visGroup->childCount - 1] = malloc( sizeof( AutoVisGroupChild_t ) );
+				memset( visGroupChild, 0, sizeof( AutoVisGroupChild_t ) );
+
+				visGroupChild->name = strdup( block->token->string );
+
+				Forward( block, { goto onError; } );
+				if ( block->token->type != OPEN_BRACKET )
+					goto onError;
+
+				Forward( block, { goto onError; } );
+				if ( block->token->type != STRING && block->token->type != CLOSE_BRACKET )
+					goto onError;
+
+				while ( block->token->type == STRING )
 				{
-					Forward( block, {goto onError;} );
-					if ( block->token->type != OPEN_PARENTHESIS )
+					if ( block->token->type != STRING )
 						goto onError;
 
-					Forward( block, {goto onError;} );
-					if ( block->token->type != NUMBER )
-						goto onError;
+					AssignOrResizeArray( visGroupChild->children, char *, visGroupChild->childCount );
+					visGroupChild->children[visGroupChild->childCount - 1] = strdup( block->token->string );
 
-					fgdFile->mapSize.x = atoi( block->token->string );
+					Forward( block, { goto onError; } );
+				}
 
-					Forward( block, {goto onError;} );
-					if ( block->token->type != COMMA )
-						goto onError;
+				if ( block->token->type != CLOSE_BRACKET )
+					goto onError;
 
-					Forward( block, {goto onError;} );
-					if ( block->token->type != NUMBER )
-						goto onError;
+				Forward( block, { goto onError; } );
+			}
 
-					fgdFile->mapSize.y = atoi( block->token->string );
+			if ( block->token->type != CLOSE_BRACKET )
+				goto onError;
 
-					Forward( block, {goto onError;} );
+			continue;
+		}
+
+		if ( strcasecmp( block->token->string, "@include" ) == 0 )
+		{
+			Forward( block, { goto onError; } );
+
+			if ( block->token->type != STRING )
+				goto onError;
+
+			AssignOrResizeArray( fgdFile->includes, char *, fgdFile->includeCount );
+			fgdFile->includes[fgdFile->includeCount - 1] = strdup( block->token->string );
+			continue;
+		}
+
+		if ( strcasecmp( block->token->string, "@MaterialExclusion" ) == 0 )
+		{
+			Forward( block, { goto onError; } );
+
+			if ( block->token->type != OPEN_BRACKET )
+				goto onError;
+
+			Forward( block, { goto onError; } );
+
+			while ( block->token->type == STRING )
+			{
+				AssignOrResizeArray( fgdFile->materialExclusions, char *, fgdFile->materialExcludeCount );
+				fgdFile->materialExclusions[fgdFile->materialExcludeCount - 1] = strdup( block->token->string );
+
+				Forward( block, { goto onError; } );
+			}
+
+			if ( block->token->type != CLOSE_BRACKET )
+				goto onError;
+
+			continue;
+		}
+
+		if ( EndsWith( block->token->string, "Class" ) )
+		{
+			AssignOrResizeArray( fgdFile->entities, Entity_t *, fgdFile->entityCount );
+			Entity_t *entity = fgdFile->entities[fgdFile->entityCount - 1] = malloc( sizeof( Entity_t ) );
+			memset( entity, 0x0, sizeof( Entity_t ) );
+			entity->classPropertyCount = 0;
+			entity->entityPropertyCount = 0;
+			entity->IOCount = 0;
+
+			entity->type = strdup( block->token->string );
+
+			Forward( block, { goto onError; } );
+
+			while ( block->token->type == LITERAL )
+			{
+				AssignOrResizeArray( entity->classProperties, ClassProperties_t *, entity->classPropertyCount );
+				ClassProperties_t *classProperties = entity->classProperties[entity->classPropertyCount - 1] = malloc( sizeof( ClassProperties_t ) );
+
+				classProperties->name = strdup( block->token->string );
+				classProperties->classPropertyCount = 0;
+				classProperties->classProperties = NULL;
+
+				Forward( block, { goto onError; } );
+				if ( block->token->type == OPEN_PARENTHESIS )
+				{
+					// if there are more than 40 non comma separated parameters, you're doing something wrong.
+					// The value is already so high in case anyone adds new fgd class parameters in the future that require them.
+					char *fields[40];
+					memset( fields, 0x0, sizeof( char * ) * 40 );
+
+					int i = 0;
+
+					Forward( block, { goto onError; } );
+					while ( block->token->type == LITERAL || block->token->type == COMMA || block->token->type == STRING || block->token->type == NUMBER )
+					{
+						if ( i > 40 ) // wtf happened?
+							goto onError;
+
+						if ( block->token->type == COMMA )
+						{
+							// AssignOrResizeArray( classProperties->classProperties, ClassProperty_t*, classProperties->classPropertyCount );
+							if ( classProperties->classProperties != NULL )
+							{
+								classProperties->classPropertyCount++;
+								classProperties->classProperties = realloc( classProperties->classProperties, ( sizeof( ClassProperty_t * ) * classProperties->classPropertyCount ) );
+							}
+							else
+							{
+								classProperties->classProperties = malloc( sizeof( ClassProperty_t * ) );
+								classProperties->classPropertyCount++;
+							}
+
+							ClassProperty_t *property = classProperties->classProperties[classProperties->classPropertyCount - 1] = malloc( sizeof( ClassProperty_t ) );
+							property->propertyCount = i;
+							property->properties = malloc( sizeof( char * ) * i );
+							for ( int j = 0; j < i; j++ )
+							{
+								property->properties[j] = strdup( fields[j] );
+							}
+
+							for ( int j = 0; j < i; j++ )
+							{
+								free( fields[j] );
+							}
+							i = 0;
+							Forward( block, { goto onError; } );
+							continue;
+						}
+
+						fields[i] = strdup( block->token->string );
+						i++;
+
+						Forward( block, { goto onError; } );
+					}
+
+					if ( i > 0 )
+					{
+						AssignOrResizeArray( classProperties->classProperties, ClassProperty_t *, classProperties->classPropertyCount );
+						ClassProperty_t *property = classProperties->classProperties[classProperties->classPropertyCount - 1] = malloc( sizeof( ClassProperty_t ) );
+						property->propertyCount = i;
+						property->properties = malloc( sizeof( char * ) * i );
+						for ( int j = 0; j < i; j++ )
+						{
+							property->properties[j] = strdup( fields[j] );
+						}
+
+						for ( int j = 0; j < i; j++ )
+						{
+							free( fields[j] );
+						}
+						i = 0;
+						Forward( block, { goto onError; } );
+						continue;
+					}
+
 					if ( block->token->type != CLOSE_PARENTHESIS )
 						goto onError;
 
-					continue;
+					Forward( block, { goto onError; } );
 				}
+			}
 
-				if ( strcasecmp( block->token->string, "@AutoVisgroup" ) == 0 )
+			if ( block->token->type != EQUALS )
+				goto onError;
+
+			Forward( block, { goto onError; } );
+			if ( block->token->type != LITERAL )
+				goto onError;
+
+			entity->entityName = strdup( block->token->string );
+
+			Forward( block, { goto onError; } );
+
+			if ( block->token->type == COLUMN )
+			{
+				Forward( block, { goto onError; } );
+
+				if ( block->token->type != STRING )
+					goto onError;
+
+				if ( !ProcessFGDStrings( &block, &entity->entityDescription ) )
+					goto onError;
+			}
+
+			if ( block->token->type != OPEN_BRACKET )
+				goto onError;
+
+			Forward( block, { goto onError; } );
+			while ( block->token->type != CLOSE_BRACKET )
+			{
+				if ( block->token->type != LITERAL )
+					goto onError;
+
+				if ( strcasecmp( block->token->string, "input" ) == 0 || strcasecmp( block->token->string, "output" ) == 0 )
 				{
-					Forward( block, {goto onError;} );
-					if ( block->token->type != EQUALS )
+					AssignOrResizeArray( entity->inputOutput, InputOutput_t *, entity->IOCount );
+					InputOutput_t *inputOutput = entity->inputOutput[entity->IOCount - 1] = malloc( sizeof( InputOutput_t ) );
+					inputOutput->description = NULL;
+					inputOutput->name = NULL;
+
+					inputOutput->putType = strcasecmp( block->token->string, "input" ) == 0 ? INPUT : OUTPUT;
+
+					Forward( block, { goto onError; } );
+
+					inputOutput->name = strdup( block->token->string );
+
+					Forward( block, { goto onError; } );
+
+					if ( block->token->type != OPEN_PARENTHESIS )
 						goto onError;
 
-					Forward( block, {goto onError;} );
-					if ( block->token->type != STRING )
-						goto onError;
+					Forward( block, { goto onError; } );
 
-					AssignOrResizeArray( fgdFile->autoVisGroups, AutoVIsGroup_t *, fgdFile->visGroupCount );
-
-					AutoVIsGroup_t *visGroup = fgdFile->autoVisGroups[fgdFile->visGroupCount - 1] = malloc( sizeof( AutoVIsGroup_t ) );
-					memset( visGroup, 0, sizeof( AutoVIsGroup_t ) );
-
-					visGroup->name = strdup( block->token->string );
-
-					Forward( block, {goto onError;} );
-					if ( block->token->type != OPEN_BRACKET )
-						goto onError;
-
-					Forward( block, {goto onError;} );
-					if ( block->token->type != STRING && block->token->type != CLOSE_BRACKET )
-						goto onError;
-
-					while ( block->token->type == STRING )
-					{
-						AssignOrResizeArray( visGroup->children, AutoVisGroupChild_t *, visGroup->childCount );
-						AutoVisGroupChild_t *visGroupChild = visGroup->children[visGroup->childCount - 1] = malloc( sizeof( AutoVisGroupChild_t ) );
-						memset( visGroupChild, 0, sizeof( AutoVisGroupChild_t ) );
-
-						visGroupChild->name = strdup( block->token->string );
-
-						Forward( block, {goto onError;} );
-						if ( block->token->type != OPEN_BRACKET )
-							goto onError;
-
-						Forward( block, {goto onError;} );
-						if ( block->token->type != STRING && block->token->type != CLOSE_BRACKET )
-							goto onError;
-
-						while ( block->token->type == STRING )
-						{
-							if ( block->token->type != STRING )
-								goto onError;
-
-							AssignOrResizeArray( visGroupChild->children, char *, visGroupChild->childCount );
-							visGroupChild->children[visGroupChild->childCount - 1] = strdup( block->token->string );
-
-							Forward( block, {goto onError;} );
-						}
-
-						if ( block->token->type != CLOSE_BRACKET )
-							goto onError;
-
-						Forward( block, {goto onError;} );
-					}
-
-					if ( block->token->type != CLOSE_BRACKET )
-						goto onError;
-
-					continue;
-				}
-
-				if ( strcasecmp( block->token->string, "@include" ) == 0 )
-				{
-					Forward( block, {goto onError;} );
-
-					if ( block->token->type != STRING )
-						goto onError;
-
-					AssignOrResizeArray( fgdFile->includes, char *, fgdFile->includeCount );
-					fgdFile->includes[fgdFile->includeCount - 1] = strdup( block->token->string );
-					continue;
-				}
-
-				if ( strcasecmp( block->token->string, "@MaterialExclusion" ) == 0 )
-				{
-					Forward( block, {goto onError;} );
-
-					if ( block->token->type != OPEN_BRACKET )
-						goto onError;
-
-					Forward( block, {goto onError;} );
-
-					while ( block->token->type == STRING )
-					{
-						AssignOrResizeArray( fgdFile->materialExclusions, char *, fgdFile->materialExcludeCount );
-						fgdFile->materialExclusions[fgdFile->materialExcludeCount - 1] = strdup( block->token->string );
-
-						Forward( block, {goto onError;} );
-					}
-
-					if ( block->token->type != CLOSE_BRACKET )
-						goto onError;
-
-					continue;
-				}
-
-				if ( EndsWith( block->token->string, "Class" ) )
-				{
-					AssignOrResizeArray( fgdFile->entities, Entity_t *, fgdFile->entityCount );
-					Entity_t *entity = fgdFile->entities[fgdFile->entityCount - 1] = malloc( sizeof( Entity_t ) );
-					memset( entity, 0x0, sizeof( Entity_t ) );
-					entity->classPropertyCount = 0;
-					entity->entityPropertyCount = 0;
-					entity->IOCount = 0;
-
-					entity->type = strdup( block->token->string );
-
-					Forward( block, {goto onError;} );
-
-					while ( block->token->type == LITERAL )
-					{
-						AssignOrResizeArray( entity->classProperties, ClassProperties_t *, entity->classPropertyCount );
-						ClassProperties_t *classProperties = entity->classProperties[entity->classPropertyCount - 1] = malloc( sizeof( ClassProperties_t ) );
-
-						classProperties->name = strdup( block->token->string );
-						classProperties->classPropertyCount = 0;
-						classProperties->classProperties = NULL;
-
-						Forward( block, {goto onError;} );
-						if ( block->token->type == OPEN_PARENTHESIS )
-						{
-							// if there are more than 40 non comma separated parameters, you're doing something wrong.
-							// The value is already so high in case anyone adds new fgd class parameters in the future that require them.
-							char *fields[40];
-							memset( fields, 0x0, sizeof( char * ) * 40 );
-
-							int i = 0;
-
-							Forward( block, {goto onError;} );
-							while ( block->token->type == LITERAL || block->token->type == COMMA || block->token->type == STRING || block->token->type == NUMBER )
-							{
-								if ( i > 40 ) // wtf happened?
-									goto onError;
-
-								if ( block->token->type == COMMA )
-								{
-									// AssignOrResizeArray( classProperties->classProperties, ClassProperty_t*, classProperties->classPropertyCount );
-									if ( classProperties->classProperties != NULL )
-									{
-										classProperties->classPropertyCount++;
-										classProperties->classProperties = realloc( classProperties->classProperties, ( sizeof( ClassProperty_t * ) * classProperties->classPropertyCount ) );
-									}
-									else
-									{
-										classProperties->classProperties = malloc( sizeof( ClassProperty_t * ) );
-										classProperties->classPropertyCount++;
-									}
-
-									ClassProperty_t *property = classProperties->classProperties[classProperties->classPropertyCount - 1] = malloc( sizeof( ClassProperty_t ) );
-									property->propertyCount = i;
-									property->properties = malloc( sizeof( char * ) * i );
-									for ( int j = 0; j < i; j++ )
-									{
-										property->properties[j] = strdup( fields[j] );
-									}
-
-									for ( int j = 0; j < i; j++ )
-									{
-										free( fields[j] );
-									}
-									i = 0;
-									Forward( block, {goto onError;} );
-									continue;
-								}
-
-								fields[i] = strdup( block->token->string );
-								i++;
-
-								Forward( block, {goto onError;} );
-							}
-
-							if ( i > 0 )
-							{
-								AssignOrResizeArray( classProperties->classProperties, ClassProperty_t *, classProperties->classPropertyCount );
-								ClassProperty_t *property = classProperties->classProperties[classProperties->classPropertyCount - 1] = malloc( sizeof( ClassProperty_t ) );
-								property->propertyCount = i;
-								property->properties = malloc( sizeof( char * ) * i );
-								for ( int j = 0; j < i; j++ )
-								{
-									property->properties[j] = strdup( fields[j] );
-								}
-
-								for ( int j = 0; j < i; j++ )
-								{
-									free( fields[j] );
-								}
-								i = 0;
-								Forward( block, {goto onError;} );
-								continue;
-							}
-
-							if ( block->token->type != CLOSE_PARENTHESIS )
-								goto onError;
-
-							Forward( block, {goto onError;} );
-						}
-					}
-
-					if ( block->token->type != EQUALS )
-						goto onError;
-
-					Forward( block, {goto onError;} );
 					if ( block->token->type != LITERAL )
 						goto onError;
 
-					entity->entityName = strdup( block->token->string );
+					int index = 0;
+					while ( index < 9 )
+					{
+						if ( strcasecmp( typeStrings[index], block->token->string ) == 0 )
+							break;
+						index++;
+					}
+					if ( index == 9 )
+						inputOutput->type = t_custom;
+					else
+						inputOutput->type = typeList[index];
 
-					Forward( block, {goto onError;} );
+					inputOutput->stringType = strdup( block->token->string );
+
+					Forward( block, { goto onError; } );
+
+					if ( block->token->type != CLOSE_PARENTHESIS )
+						goto onError;
+
+					Forward( block, { goto onError; } );
 
 					if ( block->token->type == COLUMN )
 					{
-						Forward( block, {goto onError;} );
+						Forward( block, { goto onError; } );
 
 						if ( block->token->type != STRING )
 							goto onError;
 
-						if ( !ProcessFGDStrings( &block, &entity->entityDescription ) )
+						if ( !ProcessFGDStrings( &block, &inputOutput->description ) )
 							goto onError;
 					}
+
+					continue;
+				}
+				else
+				{
+					AssignOrResizeArray( entity->entityProperties, EntityProperties_t *, entity->entityPropertyCount );
+					EntityProperties_t *entityProperties = entity->entityProperties[entity->entityPropertyCount - 1] = malloc( sizeof( EntityProperties_t ) );
+					memset( entityProperties, 0x0, sizeof( EntityProperties_t ) );
+					entityProperties->flagCount = 0;
+					entityProperties->choiceCount = 0;
+					entityProperties->readOnly = false;
+					entityProperties->reportable = false;
+
+					entityProperties->propertyName[32] = '\0'; // last character should always be a null terminator.
+					strncpy( entityProperties->propertyName, block->token->string, 31 );
+
+					Forward( block, { goto onError; } );
+					if ( block->token->type != OPEN_PARENTHESIS )
+						goto onError;
+
+					Forward( block, { goto onError; } );
+					if ( block->token->type != LITERAL )
+						goto onError;
+
+					entityProperties->type = strdup( block->token->string );
+
+					Forward( block, { goto onError; } );
+					if ( block->token->type != CLOSE_PARENTHESIS )
+						goto onError;
+
+					Forward( block, { goto onError; } );
+
+					if ( strcasecmp( block->token->string, "readonly" ) == 0 )
+					{
+						entityProperties->readOnly = true;
+						Forward( block, { goto onError; } );
+					}
+
+					if ( ( strcasecmp( block->token->string, "*" ) == 0 || strcasecmp( block->token->string, "report" ) == 0 ) )
+					{
+						entityProperties->reportable = true;
+						Forward( block, { goto onError; } );
+					}
+
+					// TODO: fix this shit dawg.
+
+					if ( block->token->type == EQUALS )
+					{
+						goto isFOC;
+					}
+
+					if ( block->token->type != COLUMN )
+						continue;
+
+					Forward( block, { goto onError; } );
+
+					if ( block->token->type != STRING )
+						goto onError;
+
+					entityProperties->displayName = strdup( block->token->string );
+
+					Forward( block, { goto onError; } );
+
+					if ( block->token->type == EQUALS )
+					{
+						goto isFOC;
+					}
+
+					if ( block->token->type != COLUMN )
+						continue;
+
+					Forward( block, { goto onError; } );
+
+					if ( block->token->type != COLUMN )
+					{
+						entityProperties->defaultValue = strdup( block->token->string );
+						Forward( block, { goto onError; } );
+					}
+
+					if ( block->token->type == EQUALS )
+					{
+						goto isFOC;
+					}
+
+					if ( block->token->type != COLUMN )
+						continue;
+
+					Forward( block, { goto onError; } );
+
+					if ( block->token->type != STRING )
+						goto onError;
+
+					if ( !ProcessFGDStrings( &block, &entityProperties->propertyDescription ) )
+						goto onError;
+
+					if ( block->token->type == EQUALS )
+					{
+						goto isFOC;
+					}
+
+					continue;
+
+				isFOC:
+				{
+					bool isFlags = strcasecmp( entityProperties->type, "flags" ) == 0;
+
+					Forward( block, { goto onError; } );
 
 					if ( block->token->type != OPEN_BRACKET )
 						goto onError;
 
-					Forward( block, {goto onError;} );
+					Forward( block, { goto onError; } );
+
 					while ( block->token->type != CLOSE_BRACKET )
 					{
-						if ( block->token->type != LITERAL )
+						if ( isFlags && block->token->type != NUMBER )
 							goto onError;
 
-						if ( strcasecmp( block->token->string, "input" ) == 0 || strcasecmp( block->token->string, "output" ) == 0 )
+						if ( isFlags )
 						{
-							AssignOrResizeArray( entity->inputOutput, InputOutput_t *, entity->IOCount );
-							InputOutput_t *inputOutput = entity->inputOutput[entity->IOCount - 1] = malloc( sizeof( InputOutput_t ) );
-							inputOutput->description = NULL;
-							inputOutput->name = NULL;
+							AssignOrResizeArray( entityProperties->flags, Flag_t *, entityProperties->flagCount );
+							Flag_t *flags = entityProperties->flags[entityProperties->flagCount - 1] = malloc( sizeof( Flag_t ) );
+							flags->value = atoi( block->token->string );
 
-							inputOutput->putType = strcasecmp( block->token->string, "input" ) == 0 ? INPUT : OUTPUT;
-
-							Forward( block, {goto onError;} );
-
-							inputOutput->name = strdup( block->token->string );
-
-							Forward( block, {goto onError;} );
-
-							if ( block->token->type != OPEN_PARENTHESIS )
+							Forward( block, { goto onError; } );
+							if ( block->token->type != COLUMN )
 								goto onError;
 
-							Forward( block, {goto onError;} );
-
-							if ( block->token->type != LITERAL )
+							Forward( block, { goto onError; } );
+							if ( block->token->type != STRING )
 								goto onError;
 
-							int index = 0;
-							while ( index < 9 )
+							flags->displayName = strdup( block->token->string );
+
+							if ( GetNext( block )->token->type == COLUMN )
 							{
-								if ( strcasecmp( typeStrings[index], block->token->string ) == 0 )
-									break;
-								index++;
-							}
-							if ( index == 9 )
-								inputOutput->type = t_custom;
-							else
-								inputOutput->type = typeList[index];
+								Forward( block, { goto onError; } );
 
-							inputOutput->stringType = strdup( block->token->string );
-
-							Forward( block, {goto onError;} );
-
-							if ( block->token->type != CLOSE_PARENTHESIS )
-								goto onError;
-
-							Forward( block, {goto onError;} );
-
-							if ( block->token->type == COLUMN )
-							{
-								Forward( block, {goto onError;} );
-
-								if ( block->token->type != STRING )
+								Forward( block, { goto onError; } );
+								if ( block->token->type != NUMBER )
 									goto onError;
-
-								if ( !ProcessFGDStrings( &block, &inputOutput->description ) )
-									goto onError;
+								flags->checked = strcasecmp( block->token->string, "1" ) == 0;
 							}
 
-							continue;
+							Forward( block, { goto onError; } );
 						}
 						else
 						{
-							AssignOrResizeArray( entity->entityProperties, EntityProperties_t *, entity->entityPropertyCount );
-							EntityProperties_t *entityProperties = entity->entityProperties[entity->entityPropertyCount - 1] = malloc( sizeof( EntityProperties_t ) );
-							memset( entityProperties, 0x0, sizeof( EntityProperties_t ) );
-							entityProperties->flagCount = 0;
-							entityProperties->choiceCount = 0;
-							entityProperties->readOnly = false;
-							entityProperties->reportable = false;
+							AssignOrResizeArray( entityProperties->choices, Choice_t *, entityProperties->choiceCount );
+							Choice_t *choice = entityProperties->choices[entityProperties->choiceCount - 1] = malloc( sizeof( Choice_t ) );
+							choice->value = strdup( block->token->string );
 
-							entityProperties->propertyName[32] = '\0'; // last character should always be a null terminator.
-							strncpy( entityProperties->propertyName, block->token->string, 31 );
-
-							Forward( block, {goto onError;} );
-							if ( block->token->type != OPEN_PARENTHESIS )
-								goto onError;
-
-							Forward( block, {goto onError;} );
-							if ( block->token->type != LITERAL )
-								goto onError;
-
-							entityProperties->type = strdup( block->token->string );
-
-							Forward( block, {goto onError;} );
-							if ( block->token->type != CLOSE_PARENTHESIS )
-								goto onError;
-
-							Forward( block, {goto onError;} );
-
-							if ( strcasecmp( block->token->string, "readonly" ) == 0 )
-							{
-								entityProperties->readOnly = true;
-								Forward( block, {goto onError;} );
-							}
-
-							if ( ( strcasecmp( block->token->string, "*" ) == 0 || strcasecmp( block->token->string, "report" ) == 0 ) )
-							{
-								entityProperties->reportable = true;
-								Forward( block, {goto onError;} );
-							}
-
-							// TODO: fix this shit dawg.
-
-							if ( block->token->type == EQUALS )
-							{
-								goto isFOC;
-							}
-
+							Forward( block, { goto onError; } );
 							if ( block->token->type != COLUMN )
-								continue;
+								goto onError;
 
-							Forward( block, {goto onError;} );
-
+							Forward( block, { goto onError; } );
 							if ( block->token->type != STRING )
 								goto onError;
 
-							entityProperties->displayName = strdup( block->token->string );
+							choice->displayName = strdup( block->token->string );
 
-							Forward( block, {goto onError;} );
-
-							if ( block->token->type == EQUALS )
-							{
-								goto isFOC;
-							}
-
-							if ( block->token->type != COLUMN )
-								continue;
-
-							Forward( block, {goto onError;} );
-
-							if ( block->token->type != COLUMN )
-							{
-								entityProperties->defaultValue = strdup( block->token->string );
-								Forward( block, {goto onError;} );
-							}
-
-							if ( block->token->type == EQUALS )
-							{
-								goto isFOC;
-							}
-
-							if ( block->token->type != COLUMN )
-								continue;
-
-							Forward( block, {goto onError;} );
-
-							if ( block->token->type != STRING )
-								goto onError;
-
-							if ( !ProcessFGDStrings( &block, &entityProperties->propertyDescription ) )
-								goto onError;
-
-							if ( block->token->type == EQUALS )
-							{
-								goto isFOC;
-							}
-
-							continue;
-
-						isFOC:
-						{
-							bool isFlags = strcasecmp( entityProperties->type, "flags" ) == 0;
-
-							Forward( block, {goto onError;} );
-
-							if ( block->token->type != OPEN_BRACKET )
-								goto onError;
-
-							Forward( block, {goto onError;} );
-
-							while ( block->token->type != CLOSE_BRACKET )
-							{
-								if ( isFlags && block->token->type != NUMBER )
-									goto onError;
-
-								if ( isFlags )
-								{
-									AssignOrResizeArray( entityProperties->flags, Flag_t *, entityProperties->flagCount );
-									Flag_t *flags = entityProperties->flags[entityProperties->flagCount - 1] = malloc( sizeof( Flag_t ) );
-									flags->value = atoi( block->token->string );
-
-									Forward( block, {goto onError;} );
-									if ( block->token->type != COLUMN )
-										goto onError;
-
-									Forward( block, {goto onError;} );
-									if ( block->token->type != STRING )
-										goto onError;
-
-									flags->displayName = strdup( block->token->string );
-
-									if ( GetNext( block )->token->type == COLUMN )
-									{
-										Forward( block, {goto onError;} );
-
-										Forward( block, {goto onError;} );
-										if ( block->token->type != NUMBER )
-											goto onError;
-										flags->checked = strcasecmp( block->token->string, "1" ) == 0;
-									}
-
-									Forward( block, {goto onError;} );
-								}
-								else
-								{
-									AssignOrResizeArray( entityProperties->choices, Choice_t *, entityProperties->choiceCount );
-									Choice_t *choice = entityProperties->choices[entityProperties->choiceCount - 1] = malloc( sizeof( Choice_t ) );
-									choice->value = strdup( block->token->string );
-
-									Forward( block, {goto onError;} );
-									if ( block->token->type != COLUMN )
-										goto onError;
-
-									Forward( block, {goto onError;} );
-									if ( block->token->type != STRING )
-										goto onError;
-
-									choice->displayName = strdup( block->token->string );
-
-									Forward( block, {goto onError;} );
-								}
-							}
+							Forward( block, { goto onError; } );
 						}
-						}
-
-						Forward( block, {goto onError;} );
 					}
 				}
+				}
+
+				Forward( block, { goto onError; } );
 			}
 		}
 	}
@@ -730,7 +557,7 @@ onError:
 	free( ownedChar );
 	FreeTokenizer( tokenizer );
 	*err = PARSE_ERROR;
-	return fgdFile;
+	return NULL;
 }
 
 bool ProcessFGDStrings( TokenBlock_t **block, char **str )
@@ -745,15 +572,15 @@ bool ProcessFGDStrings( TokenBlock_t **block, char **str )
 		if ( len > SLOME_MAX_STR_CHUNK_LENGTH )
 			return false;
 
-		memset(fields[index], 0, SLOME_MAX_STR_CHUNK_LENGTH );
+		memset( fields[index], 0, SLOME_MAX_STR_CHUNK_LENGTH );
 
 		strncpy( (char *)fields[index], ( *block )->token->string, SLOME_MAX_STR_CHUNK_LENGTH );
 
 		index++;
-		Forward( ( *block ), {return false;} );
+		Forward( ( *block ), { return false; } );
 		if ( ( *block )->token->type == PLUS )
 		{
-			Forward( ( *block ), {return false;} );
+			Forward( ( *block ), { return false; } );
 		}
 	}
 
@@ -762,8 +589,8 @@ bool ProcessFGDStrings( TokenBlock_t **block, char **str )
 
 	for ( int d = 0; d < index; d++ )
 	{
-		if(d == 0)
-			strncpy(descString, fields[d], SLOME_MAX_STR_CHUNK_LENGTH );
+		if ( d == 0 )
+			strncpy( descString, fields[d], SLOME_MAX_STR_CHUNK_LENGTH );
 		else
 			strncat( descString, fields[d], SLOME_MAX_STR_CHUNK_LENGTH );
 	}
@@ -795,8 +622,8 @@ void FreeFGDFile( struct FGDFile *file )
 			if ( file->entities[i]->inputOutput[p]->description )
 				free( file->entities[i]->inputOutput[p]->description );
 
-			if(file->entities[i]->inputOutput[p]->stringType)
-				free(file->entities[i]->inputOutput[p]->stringType);
+			if ( file->entities[i]->inputOutput[p]->stringType )
+				free( file->entities[i]->inputOutput[p]->stringType );
 
 			if ( file->entities[i]->inputOutput[p] )
 				free( file->entities[i]->inputOutput[p] );

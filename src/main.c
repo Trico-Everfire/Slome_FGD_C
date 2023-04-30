@@ -2,14 +2,13 @@
 
 #include <bits/types/FILE.h>
 #include <malloc.h>
-#include <string.h>
 #include <stdio.h>
+#include <string.h>
 
 int main( int argc, char **argv )
 {
-
-	//Syntax: -i "fpath-to-file"
-	if( strcasecmp(argv[1], "-i") != 0 || !argv[2])
+	// Syntax: -i "fpath-to-file"
+	if ( strcasecmp( argv[1], "-i" ) != 0 || !argv[2] )
 		return 1;
 
 	FILE *f = fopen( argv[2], "r" );
@@ -29,7 +28,7 @@ int main( int argc, char **argv )
 
 	if ( err == PARSE_ERROR )
 	{
-		free(fileContents);
+		free( fileContents );
 		return 1;
 	}
 
@@ -54,8 +53,6 @@ int main( int argc, char **argv )
 	for ( int k = 0; k < file->materialExcludeCount; k++ )
 		printf( "Material Exclusion Content: %s \n", file->materialExclusions[k] );
 
-
-
 	for ( int i = 0; i < file->entityCount; i++ )
 	{
 		char *type = file->entities[i]->type;
@@ -67,22 +64,20 @@ int main( int argc, char **argv )
 		if ( file->entities[i]->entityDescription )
 			printf( "Entity Description is: %s\n", file->entities[i]->entityDescription );
 
-
-		for( int j = 0; j < file->entities[i]->IOCount; j++)
+		for ( int j = 0; j < file->entities[i]->IOCount; j++ )
 		{
-
-			if(file->entities[i]->inputOutput[j]->putType == INPUT)
+			if ( file->entities[i]->inputOutput[j]->putType == INPUT )
 			{
 				printf( "Entity Input Name is: %s\n", file->entities[i]->inputOutput[j]->name );
 				printf( "Entity Input Type is: %s\n", file->entities[i]->inputOutput[j]->stringType );
-				if(file->entities[i]->inputOutput[j]->description)
+				if ( file->entities[i]->inputOutput[j]->description )
 					printf( "Entity Input Description is: %s\n", file->entities[i]->inputOutput[j]->description );
 			}
 			else
 			{
 				printf( "Entity Output Name is: %s\n", file->entities[i]->inputOutput[j]->name );
 				printf( "Entity Output Type is: %s\n", file->entities[i]->inputOutput[j]->stringType );
-				if(file->entities[i]->inputOutput[j]->description)
+				if ( file->entities[i]->inputOutput[j]->description )
 					printf( "Entity Output Description is: %s\n", file->entities[i]->inputOutput[j]->description );
 			}
 		}
@@ -101,30 +96,28 @@ int main( int argc, char **argv )
 			}
 		}
 
-		for( int j = 0; j < file->entities[i]->entityPropertyCount; j++)
+		for ( int j = 0; j < file->entities[i]->entityPropertyCount; j++ )
 		{
-			printf( "Entity Property Name: %s\n", file->entities[i]->entityProperties[j]->propertyName);
-			if(file->entities[i]->entityProperties[j]->displayName)
-				printf( "Entity Property Display Name: %s\n", file->entities[i]->entityProperties[j]->displayName);
-			if(file->entities[i]->entityProperties[j]->propertyDescription)
-				printf( "Entity Property Description: %s\n", file->entities[i]->entityProperties[j]->propertyDescription);
-			if(file->entities[i]->entityProperties[j]->defaultValue)
-				printf( "Entity Property Default Value: %s\n", file->entities[i]->entityProperties[j]->defaultValue);
+			printf( "Entity Property Name: %s\n", file->entities[i]->entityProperties[j]->propertyName );
+			if ( file->entities[i]->entityProperties[j]->displayName )
+				printf( "Entity Property Display Name: %s\n", file->entities[i]->entityProperties[j]->displayName );
+			if ( file->entities[i]->entityProperties[j]->propertyDescription )
+				printf( "Entity Property Description: %s\n", file->entities[i]->entityProperties[j]->propertyDescription );
+			if ( file->entities[i]->entityProperties[j]->defaultValue )
+				printf( "Entity Property Default Value: %s\n", file->entities[i]->entityProperties[j]->defaultValue );
 
-			for( int k = 0; k < file->entities[i]->entityProperties[j]->choiceCount; k++)
+			for ( int k = 0; k < file->entities[i]->entityProperties[j]->choiceCount; k++ )
 			{
-				printf("Entity Property Choices Value: %s\n", file->entities[i]->entityProperties[j]->choices[k]->value);
-				printf("Entity Property Choices Name: %s\n", file->entities[i]->entityProperties[j]->choices[k]->displayName);
+				printf( "Entity Property Choices Value: %s\n", file->entities[i]->entityProperties[j]->choices[k]->value );
+				printf( "Entity Property Choices Name: %s\n", file->entities[i]->entityProperties[j]->choices[k]->displayName );
 			}
-			for( int k = 0; k < file->entities[i]->entityProperties[j]->flagCount; k++)
+			for ( int k = 0; k < file->entities[i]->entityProperties[j]->flagCount; k++ )
 			{
-				printf("Entity Property Flags Value: %d\n", file->entities[i]->entityProperties[j]->flags[k]->value);
-				printf("Entity Property Flags Name: %s\n", file->entities[i]->entityProperties[j]->flags[k]->displayName);
-				printf("Entity Property Flags Checked By Default: %d\n", file->entities[i]->entityProperties[j]->flags[k]->checked);
-
+				printf( "Entity Property Flags Value: %d\n", file->entities[i]->entityProperties[j]->flags[k]->value );
+				printf( "Entity Property Flags Name: %s\n", file->entities[i]->entityProperties[j]->flags[k]->displayName );
+				printf( "Entity Property Flags Checked By Default: %d\n", file->entities[i]->entityProperties[j]->flags[k]->checked );
 			}
 		}
-
 	}
 
 	free( fileContents );

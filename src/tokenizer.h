@@ -53,10 +53,8 @@ typedef struct Tokenizer
 	TokenBlock_t *next;
 } Tokenizer_t;
 
-Token_t *GenerateEmptyToken();
-
 Tokenizer_t *GetNewTokenList();
 
-void PushToTokenList( Tokenizer_t *tokeniser, Token_t *token );
+bool TokenizeFile( char *file, unsigned long fileLength, Tokenizer_t **pTokenizer );
 
 void FreeTokenizer( Tokenizer_t *tokeniser );
