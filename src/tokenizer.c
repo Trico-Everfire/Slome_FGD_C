@@ -84,7 +84,7 @@ bool TokenizeFile( char *file, size_t fileLength, Tokenizer_t **pTokenizer )
 
 		if ( c == '"' )
 		{
-			int currentln = ln;
+			int currentLine = ln;
 			int currentLength = i;
 			char *currentPosition = seditedFile;
 			c = '\t'; // We can get away with this to trick the while loop :)
@@ -99,7 +99,7 @@ bool TokenizeFile( char *file, size_t fileLength, Tokenizer_t **pTokenizer )
 			seditedFile++;
 			i++;
 			Token_t *commentToken = GenerateEmptyToken();
-			commentToken->line = currentln;
+			commentToken->line = currentLine;
 			commentToken->type = STRING;
 			Range_t range = { currentLength, i };
 			commentToken->range = range;

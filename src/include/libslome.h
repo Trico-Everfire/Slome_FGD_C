@@ -87,11 +87,11 @@ typedef enum IO
 
 typedef struct InputOutput
 {
-	InOut_e putType;
-	EntityIOPropertyType_t type;
-	char *stringType;
-	char *description;
 	char *name;
+	char *description;
+	InOut_e putType;
+	char *stringType;
+	EntityIOPropertyType_t type;
 
 } InputOutput_t;
 
@@ -125,14 +125,14 @@ typedef struct AutoVIsGroup
 
 typedef struct FGDFile
 {
+	Vec2_t mapSize;
 	int entityCount;
 	struct Entity **entities;
-	Vec2_t mapSize;
 	int materialExcludeCount;
 	char **materialExclusions;
-	int visGroupCount;
 	int includeCount;
 	char **includes;
+	int visGroupCount;
 	struct AutoVIsGroup **autoVisGroups;
 } FGDFile_t;
 
