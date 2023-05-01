@@ -7,7 +7,8 @@ set(SRC
         src/libslome.c
         src/include/libslome.h
         src/tokenizer.h
-        src/tokenizer.c)
+        src/tokenizer.c
+        src/include/enums.h)
 
 if (STOME_TEST_APPLICATION)
     add_executable(${PROJECT_NAME} src/main.c ${SRC})

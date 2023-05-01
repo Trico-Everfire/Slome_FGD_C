@@ -4,20 +4,23 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include "enums.h"
 
 #define SLOME_MAX_STR_CHUNK_LENGTH 1024
-
-enum ParseError
-{
-	NO_ERROR = 0,
-	PARSE_ERROR
-};
 
 typedef struct Vec2
 {
 	int x;
 	int y;
 } Vec2_t;
+
+typedef struct ParsingError
+{
+	enum ParseError err;
+	int line;
+	Vec2_t span;
+
+}ParsingError_t;
 
 typedef struct ClassProperty
 {
@@ -136,6 +139,6 @@ typedef struct FGDFile
 	struct AutoVIsGroup **autoVisGroups;
 } FGDFile_t;
 
-struct FGDFile *ParseFGDFile( char *file, size_t fileLength, enum ParseError *err );
+struct FGDFile *ParseFGDFile( char *file, size_t fileLength, ParsingError_t *err );
 
 void FreeFGDFile( struct FGDFile *file );

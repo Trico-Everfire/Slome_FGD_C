@@ -1,5 +1,7 @@
 #pragma once
 
+#include "include/enums.h"
+
 #include <stdbool.h>
 
 typedef enum TokenType
@@ -36,6 +38,7 @@ typedef struct Token
 	Range_t range;
 	char *string;
 	int line;
+	enum ParseError associatedError;
 
 } Token_t;
 

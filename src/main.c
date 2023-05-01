@@ -22,12 +22,16 @@ int main( int argc, char **argv )
 
 	fclose( file );
 
-	enum ParseError err;
+	ParsingError_t err;
 
 	struct FGDFile *fgdFile = ParseFGDFile( fileContents, size, &err );
 
-	if ( err != NO_ERROR )
+	if ( err.err != NO_ERROR )
 	{
+		printf( "ERROR Enum Type: %i\n", err.err );
+		printf( "At line: %i\n", err.line );
+		printf( "From line index: %i to %i\n", err.span.x, err.span.y );
+
 		free( fileContents );
 		return 1;
 	}

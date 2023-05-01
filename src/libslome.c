@@ -1,10 +1,10 @@
 #include "include/libslome.h"
 
+#include "tokenizer.h"
+
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
-
-#include "tokenizer.h"
 
 #define FirstOrNext( toNext, toNext2 ) toNext ? toNext->next : toNext2->first
 
@@ -22,7 +22,6 @@
 #define AssignOrResizeArray( array, ArrayType, size ) \
 	size++;                                           \
 	array = realloc( array, (int)( sizeof( ArrayType ) * size ) );
-
 
 bool ProcessFGDStrings( TokenBlock_t **block, char **str )
 {
@@ -85,9 +84,29 @@ TokenBlock_t *GetNext( TokenBlock_t *block )
 	return block;
 }
 
-FGDFile_t *ParseFGDFile( char *file, size_t fileLength, enum ParseError *err )
+ParsingError_t ErrorFromBlock( TokenBlock_t *block, int lastLine )
 {
-	*err = NO_ERROR;
+	if ( !block )
+	{
+		ParsingError_t err = { PREMATURE_EOF, lastLine, { 0, 0 } };
+		return err;
+	}
+	else
+	{
+		ParsingError_t err = { block->token->associatedError, block->token->line, { block->token->range.start, block->token->range.end } };
+		return err;
+	}
+}
+
+ParsingError_t ErrorFromValues( enum ParseError parseErr, int line, int start, int end )
+{
+	ParsingError_t err = { parseErr, line, { start, end } };
+	return err;
+}
+
+FGDFile_t *ParseFGDFile( char *file, size_t fileLength, ParsingError_t *err )
+{
+	*err = ErrorFromValues( NO_ERROR, 0, 0, 0 );
 
 	FGDFile_t *fgdFile = malloc( sizeof( FGDFile_t ) );
 
@@ -102,16 +121,18 @@ FGDFile_t *ParseFGDFile( char *file, size_t fileLength, enum ParseError *err )
 	char *ownedChar = malloc( fileLength );
 	memcpy( ownedChar, file, fileLength );
 
-	if ( !TokenizeFile(ownedChar, fileLength, &tokenizer) || !tokenizer->first ) //We have no tokens.
+	if ( !TokenizeFile( ownedChar, fileLength, &tokenizer ) || !tokenizer->first ) // We have no tokens.
 	{
 		free( ownedChar );
 		FreeTokenizer( tokenizer );
-		*err = PARSE_ERROR;
+		*err = ErrorFromValues( TOKENIZATION_ERROR, fileLength, 0, fileLength );
 		return NULL;
 	}
 
 	char *typeStrings[9] = { "string", "integer", "float", "bool", "void", "script", "vector", "target_destination", "color255" };
 	EntityIOPropertyType_t typeList[9] = { t_string, t_integer, t_float, t_bool, t_void, t_script, t_vector, t_target_destination, t_color255 };
+
+	int lastLineInFile = tokenizer->next->token->line;
 
 	TokenBlock_t *block = NULL;
 	while ( ( block = FirstOrNext( block, tokenizer ) ) )
@@ -121,42 +142,63 @@ FGDFile_t *ParseFGDFile( char *file, size_t fileLength, enum ParseError *err )
 
 		if ( strcasecmp( block->token->string, "@mapsize" ) == 0 )
 		{
-			Forward( block, { goto onError; } );
+			Forward( block, { *err = ErrorFromBlock( block, lastLineInFile ); goto onError; } );
 			if ( block->token->type != OPEN_PARENTHESIS )
+			{
+				*err = ErrorFromBlock( block, lastLineInFile );
 				goto onError;
+			}
 
-			Forward( block, { goto onError; } );
+			Forward( block, { *err = ErrorFromBlock( block, lastLineInFile ); goto onError; } );
 			if ( block->token->type != NUMBER )
+			{
+				*err = ErrorFromBlock( block, lastLineInFile );
 				goto onError;
+			}
 
 			fgdFile->mapSize.x = atoi( block->token->string );
 
-			Forward( block, { goto onError; } );
+			Forward( block, { *err = ErrorFromBlock( block, lastLineInFile ); goto onError; } );
 			if ( block->token->type != COMMA )
+			{
+				*err = ErrorFromBlock( block, lastLineInFile );
 				goto onError;
+			}
 
-			Forward( block, { goto onError; } );
+			Forward( block, { *err = ErrorFromBlock( block, lastLineInFile ); goto onError; } );
 			if ( block->token->type != NUMBER )
+			{
+				*err = ErrorFromBlock( block, lastLineInFile );
 				goto onError;
+			}
 
 			fgdFile->mapSize.y = atoi( block->token->string );
 
-			Forward( block, { goto onError; } );
+			Forward( block, { *err = ErrorFromBlock( block, lastLineInFile ); goto onError; } );
 			if ( block->token->type != CLOSE_PARENTHESIS )
+			{
+				*err = ErrorFromBlock( block, lastLineInFile );
 				goto onError;
+			}
 
 			continue;
 		}
 
 		if ( strcasecmp( block->token->string, "@AutoVisgroup" ) == 0 )
 		{
-			Forward( block, { goto onError; } );
+			Forward( block, { *err = ErrorFromBlock( block, lastLineInFile ); goto onError; } );
 			if ( block->token->type != EQUALS )
+			{
+				*err = ErrorFromBlock( block, lastLineInFile );
 				goto onError;
+			}
 
-			Forward( block, { goto onError; } );
+			Forward( block, { *err = ErrorFromBlock( block, lastLineInFile ); goto onError; } );
 			if ( block->token->type != STRING )
+			{
+				*err = ErrorFromBlock( block, lastLineInFile );
 				goto onError;
+			}
 
 			AssignOrResizeArray( fgdFile->autoVisGroups, AutoVIsGroup_t *, fgdFile->visGroupCount );
 
@@ -165,13 +207,19 @@ FGDFile_t *ParseFGDFile( char *file, size_t fileLength, enum ParseError *err )
 
 			visGroup->name = strdup( block->token->string );
 
-			Forward( block, { goto onError; } );
+			Forward( block, { *err = ErrorFromBlock( block, lastLineInFile ); goto onError; } );
 			if ( block->token->type != OPEN_BRACKET )
+			{
+				*err = ErrorFromBlock( block, lastLineInFile );
 				goto onError;
+			}
 
-			Forward( block, { goto onError; } );
+			Forward( block, { *err = ErrorFromBlock( block, lastLineInFile ); goto onError; } );
 			if ( block->token->type != STRING && block->token->type != CLOSE_BRACKET )
+			{
+				*err = ErrorFromBlock( block, lastLineInFile );
 				goto onError;
+			}
 
 			while ( block->token->type == STRING )
 			{
@@ -181,43 +229,61 @@ FGDFile_t *ParseFGDFile( char *file, size_t fileLength, enum ParseError *err )
 
 				visGroupChild->name = strdup( block->token->string );
 
-				Forward( block, { goto onError; } );
+				Forward( block, { *err = ErrorFromBlock( block, lastLineInFile ); goto onError; } );
 				if ( block->token->type != OPEN_BRACKET )
+				{
+					*err = ErrorFromBlock( block, lastLineInFile );
 					goto onError;
+				}
 
-				Forward( block, { goto onError; } );
+				Forward( block, { *err = ErrorFromBlock( block, lastLineInFile ); goto onError; } );
 				if ( block->token->type != STRING && block->token->type != CLOSE_BRACKET )
+				{
+					*err = ErrorFromBlock( block, lastLineInFile );
 					goto onError;
+				}
 
 				while ( block->token->type == STRING )
 				{
 					if ( block->token->type != STRING )
+					{
+						*err = ErrorFromBlock( block, lastLineInFile );
 						goto onError;
+					}
 
 					AssignOrResizeArray( visGroupChild->children, char *, visGroupChild->childCount );
 					visGroupChild->children[visGroupChild->childCount - 1] = strdup( block->token->string );
 
-					Forward( block, { goto onError; } );
+					Forward( block, { *err = ErrorFromBlock( block, lastLineInFile ); goto onError; } );
 				}
 
 				if ( block->token->type != CLOSE_BRACKET )
+				{
+					*err = ErrorFromBlock( block, lastLineInFile );
 					goto onError;
+				}
 
-				Forward( block, { goto onError; } );
+				Forward( block, { *err = ErrorFromBlock( block, lastLineInFile ); goto onError; } );
 			}
 
 			if ( block->token->type != CLOSE_BRACKET )
+			{
+				*err = ErrorFromBlock( block, lastLineInFile );
 				goto onError;
+			}
 
 			continue;
 		}
 
 		if ( strcasecmp( block->token->string, "@include" ) == 0 )
 		{
-			Forward( block, { goto onError; } );
+			Forward( block, { *err = ErrorFromBlock( block, lastLineInFile ); goto onError; } );
 
 			if ( block->token->type != STRING )
+			{
+				*err = ErrorFromBlock( block, lastLineInFile );
 				goto onError;
+			}
 
 			AssignOrResizeArray( fgdFile->includes, char *, fgdFile->includeCount );
 			fgdFile->includes[fgdFile->includeCount - 1] = strdup( block->token->string );
@@ -226,23 +292,29 @@ FGDFile_t *ParseFGDFile( char *file, size_t fileLength, enum ParseError *err )
 
 		if ( strcasecmp( block->token->string, "@MaterialExclusion" ) == 0 )
 		{
-			Forward( block, { goto onError; } );
+			Forward( block, { *err = ErrorFromBlock( block, lastLineInFile ); goto onError; } );
 
 			if ( block->token->type != OPEN_BRACKET )
+			{
+				*err = ErrorFromBlock( block, lastLineInFile );
 				goto onError;
+			}
 
-			Forward( block, { goto onError; } );
+			Forward( block, { *err = ErrorFromBlock( block, lastLineInFile ); goto onError; } );
 
 			while ( block->token->type == STRING )
 			{
 				AssignOrResizeArray( fgdFile->materialExclusions, char *, fgdFile->materialExcludeCount );
 				fgdFile->materialExclusions[fgdFile->materialExcludeCount - 1] = strdup( block->token->string );
 
-				Forward( block, { goto onError; } );
+				Forward( block, { *err = ErrorFromBlock( block, lastLineInFile ); goto onError; } );
 			}
 
 			if ( block->token->type != CLOSE_BRACKET )
+			{
+				*err = ErrorFromBlock( block, lastLineInFile );
 				goto onError;
+			}
 
 			continue;
 		}
@@ -258,7 +330,7 @@ FGDFile_t *ParseFGDFile( char *file, size_t fileLength, enum ParseError *err )
 
 			entity->type = strdup( block->token->string );
 
-			Forward( block, { goto onError; } );
+			Forward( block, { *err = ErrorFromBlock( block, lastLineInFile ); goto onError; } );
 
 			while ( block->token->type == LITERAL )
 			{
@@ -269,7 +341,7 @@ FGDFile_t *ParseFGDFile( char *file, size_t fileLength, enum ParseError *err )
 				classProperties->classPropertyCount = 0;
 				classProperties->classProperties = NULL;
 
-				Forward( block, { goto onError; } );
+				Forward( block, { *err = ErrorFromBlock( block, lastLineInFile ); goto onError; } );
 				if ( block->token->type == OPEN_PARENTHESIS )
 				{
 					// if there are more than 40 non comma separated parameters, you're doing something wrong.
@@ -279,11 +351,14 @@ FGDFile_t *ParseFGDFile( char *file, size_t fileLength, enum ParseError *err )
 
 					int i = 0;
 
-					Forward( block, { goto onError; } );
+					Forward( block, { *err = ErrorFromBlock( block, lastLineInFile ); goto onError; } );
 					while ( block->token->type == LITERAL || block->token->type == COMMA || block->token->type == STRING || block->token->type == NUMBER )
 					{
 						if ( i > 40 ) // wtf happened?
+						{
+							*err = ErrorFromBlock( block, lastLineInFile );
 							goto onError;
+						}
 
 						if ( block->token->type == COMMA )
 						{
@@ -312,14 +387,14 @@ FGDFile_t *ParseFGDFile( char *file, size_t fileLength, enum ParseError *err )
 								free( fields[j] );
 							}
 							i = 0;
-							Forward( block, { goto onError; } );
+							Forward( block, { *err = ErrorFromBlock( block, lastLineInFile ); goto onError; } );
 							continue;
 						}
 
 						fields[i] = strdup( block->token->string );
 						i++;
 
-						Forward( block, { goto onError; } );
+						Forward( block, { *err = ErrorFromBlock( block, lastLineInFile ); goto onError; } );
 					}
 
 					if ( i > 0 )
@@ -338,47 +413,68 @@ FGDFile_t *ParseFGDFile( char *file, size_t fileLength, enum ParseError *err )
 							free( fields[j] );
 						}
 						i = 0;
-						Forward( block, { goto onError; } );
+						Forward( block, { *err = ErrorFromBlock( block, lastLineInFile ); goto onError; } );
 						continue;
 					}
 
 					if ( block->token->type != CLOSE_PARENTHESIS )
+					{
+						*err = ErrorFromBlock( block, lastLineInFile );
 						goto onError;
+					}
 
-					Forward( block, { goto onError; } );
+					Forward( block, { *err = ErrorFromBlock( block, lastLineInFile ); goto onError; } );
 				}
 			}
 
 			if ( block->token->type != EQUALS )
+			{
+				*err = ErrorFromBlock( block, lastLineInFile );
 				goto onError;
+			}
 
-			Forward( block, { goto onError; } );
+			Forward( block, { *err = ErrorFromBlock( block, lastLineInFile ); goto onError; } );
 			if ( block->token->type != LITERAL )
+			{
+				*err = ErrorFromBlock( block, lastLineInFile );
 				goto onError;
+			}
 
 			entity->entityName = strdup( block->token->string );
 
-			Forward( block, { goto onError; } );
+			Forward( block, { *err = ErrorFromBlock( block, lastLineInFile ); goto onError; } );
 
 			if ( block->token->type == COLUMN )
 			{
-				Forward( block, { goto onError; } );
+				Forward( block, { *err = ErrorFromBlock( block, lastLineInFile ); goto onError; } );
 
 				if ( block->token->type != STRING )
+				{
+					*err = ErrorFromBlock( block, lastLineInFile );
 					goto onError;
+				}
 
 				if ( !ProcessFGDStrings( &block, &entity->entityDescription ) )
+				{
+					*err = ErrorFromBlock( block, lastLineInFile );
 					goto onError;
+				}
 			}
 
 			if ( block->token->type != OPEN_BRACKET )
+			{
+				*err = ErrorFromBlock( block, lastLineInFile );
 				goto onError;
+			}
 
-			Forward( block, { goto onError; } );
+			Forward( block, { *err = ErrorFromBlock( block, lastLineInFile ); goto onError; } );
 			while ( block->token->type != CLOSE_BRACKET )
 			{
 				if ( block->token->type != LITERAL )
+				{
+					*err = ErrorFromBlock( block, lastLineInFile );
 					goto onError;
+				}
 
 				if ( strcasecmp( block->token->string, "input" ) == 0 || strcasecmp( block->token->string, "output" ) == 0 )
 				{
@@ -389,19 +485,25 @@ FGDFile_t *ParseFGDFile( char *file, size_t fileLength, enum ParseError *err )
 
 					inputOutput->putType = strcasecmp( block->token->string, "input" ) == 0 ? INPUT : OUTPUT;
 
-					Forward( block, { goto onError; } );
+					Forward( block, { *err = ErrorFromBlock( block, lastLineInFile ); goto onError; } );
 
 					inputOutput->name = strdup( block->token->string );
 
-					Forward( block, { goto onError; } );
+					Forward( block, { *err = ErrorFromBlock( block, lastLineInFile ); goto onError; } );
 
 					if ( block->token->type != OPEN_PARENTHESIS )
+					{
+						*err = ErrorFromBlock( block, lastLineInFile );
 						goto onError;
+					}
 
-					Forward( block, { goto onError; } );
+					Forward( block, { *err = ErrorFromBlock( block, lastLineInFile ); goto onError; } );
 
 					if ( block->token->type != LITERAL )
+					{
+						*err = ErrorFromBlock( block, lastLineInFile );
 						goto onError;
+					}
 
 					int index = 0;
 					while ( index < 9 )
@@ -417,22 +519,31 @@ FGDFile_t *ParseFGDFile( char *file, size_t fileLength, enum ParseError *err )
 
 					inputOutput->stringType = strdup( block->token->string );
 
-					Forward( block, { goto onError; } );
+					Forward( block, { *err = ErrorFromBlock( block, lastLineInFile ); goto onError; } );
 
 					if ( block->token->type != CLOSE_PARENTHESIS )
+					{
+						*err = ErrorFromBlock( block, lastLineInFile );
 						goto onError;
+					}
 
-					Forward( block, { goto onError; } );
+					Forward( block, { *err = ErrorFromBlock( block, lastLineInFile ); goto onError; } );
 
 					if ( block->token->type == COLUMN )
 					{
-						Forward( block, { goto onError; } );
+						Forward( block, { *err = ErrorFromBlock( block, lastLineInFile ); goto onError; } );
 
 						if ( block->token->type != STRING )
+						{
+							*err = ErrorFromBlock( block, lastLineInFile );
 							goto onError;
+						}
 
 						if ( !ProcessFGDStrings( &block, &inputOutput->description ) )
+						{
+							*err = ErrorFromBlock( block, lastLineInFile );
 							goto onError;
+						}
 					}
 
 					continue;
@@ -450,32 +561,41 @@ FGDFile_t *ParseFGDFile( char *file, size_t fileLength, enum ParseError *err )
 					entityProperties->propertyName[32] = '\0'; // last character should always be a null terminator.
 					strncpy( entityProperties->propertyName, block->token->string, 31 );
 
-					Forward( block, { goto onError; } );
+					Forward( block, { *err = ErrorFromBlock( block, lastLineInFile ); goto onError; } );
 					if ( block->token->type != OPEN_PARENTHESIS )
+					{
+						*err = ErrorFromBlock( block, lastLineInFile );
 						goto onError;
+					}
 
-					Forward( block, { goto onError; } );
+					Forward( block, { *err = ErrorFromBlock( block, lastLineInFile ); goto onError; } );
 					if ( block->token->type != LITERAL )
+					{
+						*err = ErrorFromBlock( block, lastLineInFile );
 						goto onError;
+					}
 
 					entityProperties->type = strdup( block->token->string );
 
-					Forward( block, { goto onError; } );
+					Forward( block, { *err = ErrorFromBlock( block, lastLineInFile ); goto onError; } );
 					if ( block->token->type != CLOSE_PARENTHESIS )
+					{
+						*err = ErrorFromBlock( block, lastLineInFile );
 						goto onError;
+					}
 
-					Forward( block, { goto onError; } );
+					Forward( block, { *err = ErrorFromBlock( block, lastLineInFile ); goto onError; } );
 
 					if ( strcasecmp( block->token->string, "readonly" ) == 0 )
 					{
 						entityProperties->readOnly = true;
-						Forward( block, { goto onError; } );
+						Forward( block, { *err = ErrorFromBlock( block, lastLineInFile ); goto onError; } );
 					}
 
 					if ( ( strcasecmp( block->token->string, "*" ) == 0 || strcasecmp( block->token->string, "report" ) == 0 ) )
 					{
 						entityProperties->reportable = true;
-						Forward( block, { goto onError; } );
+						Forward( block, { *err = ErrorFromBlock( block, lastLineInFile ); goto onError; } );
 					}
 
 					// TODO: fix this shit dawg.
@@ -488,14 +608,17 @@ FGDFile_t *ParseFGDFile( char *file, size_t fileLength, enum ParseError *err )
 					if ( block->token->type != COLUMN )
 						continue;
 
-					Forward( block, { goto onError; } );
+					Forward( block, { *err = ErrorFromBlock( block, lastLineInFile ); goto onError; } );
 
 					if ( block->token->type != STRING )
+					{
+						*err = ErrorFromBlock( block, lastLineInFile );
 						goto onError;
+					}
 
 					entityProperties->displayName = strdup( block->token->string );
 
-					Forward( block, { goto onError; } );
+					Forward( block, { *err = ErrorFromBlock( block, lastLineInFile ); goto onError; } );
 
 					if ( block->token->type == EQUALS )
 					{
@@ -505,12 +628,12 @@ FGDFile_t *ParseFGDFile( char *file, size_t fileLength, enum ParseError *err )
 					if ( block->token->type != COLUMN )
 						continue;
 
-					Forward( block, { goto onError; } );
+					Forward( block, { *err = ErrorFromBlock( block, lastLineInFile ); goto onError; } );
 
 					if ( block->token->type != COLUMN )
 					{
 						entityProperties->defaultValue = strdup( block->token->string );
-						Forward( block, { goto onError; } );
+						Forward( block, { *err = ErrorFromBlock( block, lastLineInFile ); goto onError; } );
 					}
 
 					if ( block->token->type == EQUALS )
@@ -521,13 +644,19 @@ FGDFile_t *ParseFGDFile( char *file, size_t fileLength, enum ParseError *err )
 					if ( block->token->type != COLUMN )
 						continue;
 
-					Forward( block, { goto onError; } );
+					Forward( block, { *err = ErrorFromBlock( block, lastLineInFile ); goto onError; } );
 
 					if ( block->token->type != STRING )
+					{
+						*err = ErrorFromBlock( block, lastLineInFile );
 						goto onError;
+					}
 
 					if ( !ProcessFGDStrings( &block, &entityProperties->propertyDescription ) )
+					{
+						*err = ErrorFromBlock( block, lastLineInFile );
 						goto onError;
+					}
 
 					if ( block->token->type == EQUALS )
 					{
@@ -540,17 +669,23 @@ FGDFile_t *ParseFGDFile( char *file, size_t fileLength, enum ParseError *err )
 				{
 					bool isFlags = strcasecmp( entityProperties->type, "flags" ) == 0;
 
-					Forward( block, { goto onError; } );
+					Forward( block, { *err = ErrorFromBlock( block, lastLineInFile ); goto onError; } );
 
 					if ( block->token->type != OPEN_BRACKET )
+					{
+						*err = ErrorFromBlock( block, lastLineInFile );
 						goto onError;
+					}
 
-					Forward( block, { goto onError; } );
+					Forward( block, { *err = ErrorFromBlock( block, lastLineInFile ); goto onError; } );
 
 					while ( block->token->type != CLOSE_BRACKET )
 					{
 						if ( isFlags && block->token->type != NUMBER )
+						{
+							*err = ErrorFromBlock( block, lastLineInFile );
 							goto onError;
+						}
 
 						if ( isFlags )
 						{
@@ -558,27 +693,36 @@ FGDFile_t *ParseFGDFile( char *file, size_t fileLength, enum ParseError *err )
 							Flag_t *flags = entityProperties->flags[entityProperties->flagCount - 1] = malloc( sizeof( Flag_t ) );
 							flags->value = atoi( block->token->string );
 
-							Forward( block, { goto onError; } );
+							Forward( block, { *err = ErrorFromBlock( block, lastLineInFile ); goto onError; } );
 							if ( block->token->type != COLUMN )
+							{
+								*err = ErrorFromBlock( block, lastLineInFile );
 								goto onError;
+							}
 
-							Forward( block, { goto onError; } );
+							Forward( block, { *err = ErrorFromBlock( block, lastLineInFile ); goto onError; } );
 							if ( block->token->type != STRING )
+							{
+								*err = ErrorFromBlock( block, lastLineInFile );
 								goto onError;
+							}
 
 							flags->displayName = strdup( block->token->string );
 
 							if ( GetNext( block )->token->type == COLUMN )
 							{
-								Forward( block, { goto onError; } );
+								Forward( block, { *err = ErrorFromBlock( block, lastLineInFile ); goto onError; } );
 
-								Forward( block, { goto onError; } );
+								Forward( block, { *err = ErrorFromBlock( block, lastLineInFile ); goto onError; } );
 								if ( block->token->type != NUMBER )
+								{
+									*err = ErrorFromBlock( block, lastLineInFile );
 									goto onError;
+								}
 								flags->checked = strcasecmp( block->token->string, "1" ) == 0;
 							}
 
-							Forward( block, { goto onError; } );
+							Forward( block, { *err = ErrorFromBlock( block, lastLineInFile ); goto onError; } );
 						}
 						else
 						{
@@ -586,23 +730,29 @@ FGDFile_t *ParseFGDFile( char *file, size_t fileLength, enum ParseError *err )
 							Choice_t *choice = entityProperties->choices[entityProperties->choiceCount - 1] = malloc( sizeof( Choice_t ) );
 							choice->value = strdup( block->token->string );
 
-							Forward( block, { goto onError; } );
+							Forward( block, { *err = ErrorFromBlock( block, lastLineInFile ); goto onError; } );
 							if ( block->token->type != COLUMN )
+							{
+								*err = ErrorFromBlock( block, lastLineInFile );
 								goto onError;
+							}
 
-							Forward( block, { goto onError; } );
+							Forward( block, { *err = ErrorFromBlock( block, lastLineInFile ); goto onError; } );
 							if ( block->token->type != STRING )
+							{
+								*err = ErrorFromBlock( block, lastLineInFile );
 								goto onError;
+							}
 
 							choice->displayName = strdup( block->token->string );
 
-							Forward( block, { goto onError; } );
+							Forward( block, { *err = ErrorFromBlock( block, lastLineInFile ); goto onError; } );
 						}
 					}
 				}
 				}
 
-				Forward( block, { goto onError; } );
+				Forward( block, { *err = ErrorFromBlock( block, lastLineInFile ); goto onError; } );
 			}
 		}
 	}
@@ -616,7 +766,6 @@ onError:
 	FreeFGDFile( fgdFile );
 	free( ownedChar );
 	FreeTokenizer( tokenizer );
-	*err = PARSE_ERROR;
 	return NULL;
 }
 
