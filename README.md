@@ -20,7 +20,7 @@ fread( fileContents, sizeof( char ), size, file );
 
 fclose( file );
 
-enum ParseError err;
+ParsingError_t err;
 
 // We turn the raw text file into a FGD struct.
 // if this process fails it returns NULL.
@@ -30,8 +30,12 @@ enum ParseError err;
     
 struct FGDFile *fgdFile = ParseFGDFile( fileContents, size, &err );
 
-if ( err != NO_ERROR )
+if ( err.err != NO_ERROR )
 {
+    printf( "ERROR Enum Type: %i\n", err.err );
+    printf( "At line: %i\n", err.line );
+    printf( "From line index: %i to %i\n", err.span.x, err.span.y );
+
     free( fileContents );
     return 1;
 }
@@ -45,7 +49,7 @@ FreeFGDFile( fgdFile );
 ### ParseFGDFile
 Provides a struct with all entities, the map size, material exclusions, visgroups and includes.
 ```c 
-struct FGDFile *ParseFGDFile( char *file, size_t fileLength, enum ParseError *err );
+struct FGDFile *ParseFGDFile( char *file, size_t fileLength, ParsingError_t *err );
 ```
 
 ### FreeFGDFile
