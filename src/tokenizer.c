@@ -9,6 +9,7 @@ char singleTokens[] = "{}[](),:=+";
 TokenType_e valueTokens[] = { OPEN_BRACE, CLOSE_BRACE, OPEN_BRACKET, CLOSE_BRACKET, OPEN_PARENTHESIS, CLOSE_PARENTHESIS, COMMA, COLUMN, EQUALS, PLUS };
 enum ParseError tokenErrors[] = { INVALID_OPEN_BRACE, INVALID_CLOSE_BRACE, INVALID_OPEN_BRACKET, INVALID_CLOSE_BRACKET, INVALID_OPEN_PARENTHESIS, INVALID_CLOSE_PARENTHESIS, INVALID_COMMA,INVALID_COLUMN,INVALID_EQUALS,INVALID_PLUS};
 
+//Appends a new token to the tokenizer's token list.
 void PushToTokenList( Tokenizer_t *tokeniser, Token_t *token )
 {
 	TokenBlock_t *tokenList = malloc( sizeof( TokenBlock_t ) );
@@ -27,6 +28,7 @@ void PushToTokenList( Tokenizer_t *tokeniser, Token_t *token )
 	tokeniser->tokenListCount++;
 }
 
+// The method for getting a new Tokenizer Token.
 Token_t *GenerateEmptyToken()
 {
 	Token_t *token = malloc( sizeof( Token_t ) );
@@ -36,6 +38,8 @@ Token_t *GenerateEmptyToken()
 }
 
 //public
+
+// The method for getting a new Tokenizer.
 Tokenizer_t *GetNewTokenList()
 {
 	Tokenizer_t *pTokenizer = malloc( sizeof( Tokenizer_t ) );
@@ -48,6 +52,31 @@ Tokenizer_t *GetNewTokenList()
 	pTokenizer->tokenListCount = 0;
 
 	return pTokenizer;
+}
+
+/*
+ * char* SanitizeString(const char* string, int length, int* newLength)
+ * Removes any non printable characters from a string with the exception of
+ * tabs and new lines. (\t, \n)
+ */
+
+char* SanitizeString(const char* string, int length, int* newLength)
+{
+	char* tmp = malloc( length + 1);
+	int r = 0;
+	for(int l = 0; l < length; l++)
+	{
+		if(!isprint(string[l]) && string[l] != '\n' && string[l] != '\t')
+			continue;
+		tmp[r] = string[l];
+		r++;
+	}
+
+	tmp[r] = '\0';
+	*newLength = r;
+	char* ret = strndup(tmp, r);
+	free(tmp);
+	return ret;
 }
 
 bool TokenizeFile( char *file, size_t fileLength, Tokenizer_t **pTokenizer )
@@ -108,9 +137,16 @@ bool TokenizeFile( char *file, size_t fileLength, Tokenizer_t **pTokenizer )
 			token->line = currentLine;
 			token->type = STRING;
 			token->associatedError = INVALID_STRING;
-			Range_t range = { currentPos, pos };
+
+			int newStrLength = 0;
+			token->string = SanitizeString( currentPosition, i - currentLength, &newStrLength );
+
+			int subtractFromRange = (i - currentLength - newStrLength);
+
+			Range_t range = { currentPos, pos - (currentPos - subtractFromRange ) };
 			token->range = range;
-			token->string = strndup( currentPosition, i - currentLength );
+
+
 			PushToTokenList( tokenizer, token );
 			seditedFile--;
 			i--;
@@ -138,9 +174,15 @@ bool TokenizeFile( char *file, size_t fileLength, Tokenizer_t **pTokenizer )
 			Token_t *token = GenerateEmptyToken();
 			token->line = ln;
 			token->type = COMMENT;
-			Range_t range = { currentPos, pos };
+
+			int newStrLength = 0;
+			token->string = SanitizeString( currentPosition, i - currentLength, &newStrLength );
+
+			int subtractFromRange = (i - currentLength - newStrLength);
+
+			Range_t range = { currentPos, pos - (currentPos - subtractFromRange ) };
 			token->range = range;
-			token->string = strndup( currentPosition, i - currentLength );
+
 			PushToTokenList( tokenizer, token );
 
 			seditedFile--;
@@ -172,9 +214,15 @@ bool TokenizeFile( char *file, size_t fileLength, Tokenizer_t **pTokenizer )
 			token->line = ln;
 			token->type = DEFINITION;
 			token->associatedError = INVALID_DEFINITION;
-			Range_t range = { currentPos, pos };
+
+			int newStrLength = 0;
+			token->string = SanitizeString( currentPosition, i - currentLength, &newStrLength );
+
+			int subtractFromRange = (i - currentLength - newStrLength);
+
+			Range_t range = { currentPos, pos - (currentPos - subtractFromRange ) };
 			token->range = range;
-			token->string = strndup( currentPosition, i - currentLength );
+
 			PushToTokenList( tokenizer, token );
 
 			seditedFile--;
@@ -197,13 +245,18 @@ bool TokenizeFile( char *file, size_t fileLength, Tokenizer_t **pTokenizer )
 				c = *seditedFile;
 			}
 
+#ifdef SLOME_UNIFIED_FGD
+			while ( isdigit( c ) != 0 || c == '.' )
+#else
 			while ( isdigit( c ) != 0 )
+#endif
 			{
 				c = *seditedFile;
 				i++;
 				pos++;
 				seditedFile++;
 			}
+
 			seditedFile--;
 			i--;
 			pos--;
@@ -259,9 +312,15 @@ bool TokenizeFile( char *file, size_t fileLength, Tokenizer_t **pTokenizer )
 			token->line = ln;
 			token->type = LITERAL;
 			token->associatedError = INVALID_LITERAL;
-			Range_t range = { currentPos, pos };
+
+			int newStrLength = 0;
+			token->string = SanitizeString( currentPosition, i - currentLength, &newStrLength );
+
+			int subtractFromRange = (i - currentLength - newStrLength);
+
+			Range_t range = { currentPos, pos - (currentPos - subtractFromRange ) };
 			token->range = range;
-			token->string = strndup( currentPosition, i - currentLength );
+
 			PushToTokenList( tokenizer, token );
 			seditedFile--;
 			i--;

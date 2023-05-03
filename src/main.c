@@ -41,6 +41,7 @@ int main( int argc, char **argv )
 
 	printf( "Visgroup count is: %i\n", fgdFile->visGroupCount );
 
+	if(0)
 	for ( int i = 0; i < fgdFile->visGroupCount; i++ )
 	{
 		struct AutoVIsGroup *vis = fgdFile->autoVisGroups[i];
@@ -54,8 +55,10 @@ int main( int argc, char **argv )
 		}
 	}
 
+	if(0)
 	for ( int k = 0; k < fgdFile->materialExcludeCount; k++ )
 		printf( "Material Exclusion Content: %s \n", fgdFile->materialExclusions[k] );
+
 
 	for ( int i = 0; i < fgdFile->entityCount; i++ )
 	{
@@ -74,6 +77,13 @@ int main( int argc, char **argv )
 			{
 				printf( "Entity Input Name is: %s\n", fgdFile->entities[i]->inputOutput[j]->name );
 				printf( "Entity Input Type is: %s\n", fgdFile->entities[i]->inputOutput[j]->stringType );
+#ifdef SLOME_UNIFIED_FGD
+				for(int k = 0; k < fgdFile->entities[i]->inputOutput[j]->tagList.tagCount; k++)
+				{
+					printf( "Entity Input tag is: %s\n", fgdFile->entities[i]->inputOutput[j]->tagList.tags[k] );
+				}
+#endif
+
 				if ( fgdFile->entities[i]->inputOutput[j]->description )
 					printf( "Entity Input Description is: %s\n", fgdFile->entities[i]->inputOutput[j]->description );
 			}
@@ -122,7 +132,21 @@ int main( int argc, char **argv )
 				printf( "Entity Property Flags Checked By Default: %d\n", fgdFile->entities[i]->entityProperties[j]->flags[k]->checked );
 			}
 		}
+#ifdef SLOME_UNIFIED_FGD
+		for ( int j = 0; j < fgdFile->entities[i]->resourceCount; j++)
+		{
+			printf("entity resource key: %s\n", fgdFile->entities[i]->resources[j]->key);
+			printf("entity resource value: %s\n", fgdFile->entities[i]->resources[j]->value);
+
+			for(int k = 0; k < fgdFile->entities[i]->resources[j]->tagList.tagCount; k++)
+			{
+				printf( "Entity Resource tag is: %s\n", fgdFile->entities[i]->resources[j]->tagList.tags[k] );
+			}
+		}
+#endif
+
 	}
+
 
 	free( fileContents );
 	FreeFGDFile( fgdFile );

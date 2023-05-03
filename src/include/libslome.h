@@ -20,7 +20,15 @@ typedef struct ParsingError
 	int line;
 	Vec2_t span;
 
-}ParsingError_t;
+} ParsingError_t;
+
+#ifdef SLOME_UNIFIED_FGD
+typedef struct TagList
+{
+	char** tags;
+	int tagCount;
+} TagList_t;
+#endif
 
 typedef struct ClassProperty
 {
@@ -55,6 +63,9 @@ typedef struct Choice
 {
 	char *value;
 	char *displayName;
+#ifdef SLOME_UNIFIED_FGD
+	TagList_t tagList;
+#endif
 } Choice_t;
 
 typedef struct Flag
@@ -62,6 +73,9 @@ typedef struct Flag
 	int value;
 	bool checked;
 	char *displayName;
+#ifdef SLOME_UNIFIED_FGD
+	TagList_t tagList;
+#endif
 } Flag_t;
 
 typedef struct EntityProperties
@@ -73,6 +87,10 @@ typedef struct EntityProperties
 	char *propertyDescription;
 	bool readOnly;
 	bool reportable;
+
+#ifdef SLOME_UNIFIED_FGD
+	TagList_t tagList;
+#endif
 
 	int choiceCount; // This is a special case if the EntityPropertyType is t_choices
 	Choice_t **choices;
@@ -95,20 +113,35 @@ typedef struct InputOutput
 	InOut_e putType;
 	char *stringType;
 	EntityIOPropertyType_t type;
+#ifdef SLOME_UNIFIED_FGD
+	TagList_t tagList;
+#endif
 
 } InputOutput_t;
+#ifdef SLOME_UNIFIED_FGD
+typedef struct EntityResource
+{
+	char* key;
+	char* value;
+	TagList_t tagList;
+} EntityResource_t;
+#endif
 
 typedef struct Entity
 {
 	char *type;
 	int classPropertyCount;
-	struct ClassProperties **classProperties;
+	ClassProperties_t **classProperties;
 	char *entityName;
 	char *entityDescription;
 	int entityPropertyCount;
-	struct EntityProperties **entityProperties;
+	EntityProperties_t **entityProperties;
 	int IOCount;
-	struct InputOutput **inputOutput;
+	InputOutput_t **inputOutput;
+#ifdef SLOME_UNIFIED_FGD
+	EntityResource_t **resources;
+	int resourceCount;
+#endif
 
 } Entity_t;
 
