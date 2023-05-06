@@ -324,8 +324,6 @@ FGDFile_t *ParseFGDFile( char *file, size_t fileLength, ParsingError_t *err )
 			AutoVIsGroup_t *visGroup = fgdFile->autoVisGroups[fgdFile->visGroupCount - 1] = malloc( sizeof( AutoVIsGroup_t ) );
 			memset( visGroup, 0, sizeof( AutoVIsGroup_t ) );
 
-			printf( "%s\n", block->token->string );
-
 			visGroup->name = strdup( block->token->string );
 
 			Forward( block, { *err = ErrorFromBlock( block, lastLineInFile ); goto onError; } );
